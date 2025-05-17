@@ -2,3 +2,7 @@ live-2d/
 bert-model/
 Mnemosyne-bert/
 *.zip
+.vscode/
+model/
+recorded_audio/
+tts-studio/
