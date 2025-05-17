@@ -1,0 +1,3 @@
+[submodule "tts-studio/moegoe"]
+	path = tts-studio/moegoe
+	url = https://github.com/CjangCjengh/MoeGoe.git
