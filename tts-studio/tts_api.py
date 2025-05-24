@@ -886,5 +886,383 @@ async def tts_endpoint(
     return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed)
 
 
+import os
+import sys
+import logging # 假设 logger 已经在 GPT-SoVITS 的 api.py 中配置好了
+import torch
+from torch import LongTensor, no_grad
+from io import BytesIO
+import numpy as np # 确保已安装
+import soundfile as sf # 确保已安装，MoeGoe 可能用 scipy.io.wavfile.write
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse
+
+# --- 假设这些是 api.py 中已有的全局变量或从 argparse/config.py 获取 ---
+# now_dir = os.getcwd() # 通常在 api.py 开头
+# device = "cuda"  # or "cpu", 从 args.device 获取
+# is_half = False # or True, 从 args.is_half 或命令行参数获取
+# logger = logging.getLogger('uvicorn') # GPT-SoVITS 的 logger
+# stream_mode = "close" # or "normal", 从 args.stream_mode 获取
+# media_type = "wav" # or "ogg", "aac", 从 args.media_type 获取
+# g_config = global_config.Config() # 假设 GPT-SoVITS 的全局配置对象
+
+# --- VITS/MoeGoe Submodule 导入 ---
+# 确保 moegoe submodule 在 Python 的搜索路径中
+# 如果 api.py 和 moegoe 文件夹在同一级，并且 moegoe 是一个包 (有 __init__.py)
+# 或者你需要根据你的项目结构调整
+# sys.path.append(os.path.join(now_dir, "moegoe")) # 一种可能的处理方式，如果直接 from .moegoe 不工作
+
+try:
+    from .moegoe import utils as vits_utils
+    from .moegoe.models import SynthesizerTrn as VitsSynthesizerTrn
+    from .moegoe.text import text_to_sequence as vits_text_to_sequence
+    from .moegoe.text import _clean_text as vits_clean_text # 如果需要
+    from .moegoe import commons as vits_commons
+    # 如果 MoeGoe 使用 scipy.io.wavfile, 你可能需要它，或者用 soundfile 替代
+    # from scipy.io.wavfile import write as vits_write_wav
+except ImportError as e:
+    sys.path.append(os.path.join(now_dir, "moegoe"))
+    from moegoe import utils as vits_utils
+    from moegoe.models import SynthesizerTrn as VitsSynthesizerTrn
+    from moegoe.text import text_to_sequence as vits_text_to_sequence
+    from moegoe.text import _clean_text as vits_clean_text # 如果需要
+    from moegoe import commons as vits_commons
+    logger.error(f"Failed to import MoeGoe submodule components. Ensure 'moegoe' is a valid submodule/package in the path: {e}")
+    # 你可以在这里决定是否因为导入失败而退出程序
+    # sys.exit(1)
+    # 为了示例继续，我们假设导入成功，但在实际应用中需要处理这个错误
+
+# --- VITS/MoeGoe 全局状态 ---
+vits_hps_global = None
+vits_net_g_global = None
+vits_speakers_global = None # 通常是一个列表或字典
+vits_n_symbols_global = 0
+
+# --- VITS/MoeGoe 核心函数 ---
+def load_vits_model(model_path: str, config_path: str):
+    """加载 VITS/MoeGoe 模型和配置"""
+    global vits_hps_global, vits_net_g_global, vits_speakers_global, vits_n_symbols_global, device, is_half, logger
+
+    if not os.path.exists(model_path):
+        logger.error(f"VITS model file not found: {model_path}")
+        raise FileNotFoundError(f"VITS model file not found: {model_path}")
+    if not os.path.exists(config_path):
+        logger.error(f"VITS config file not found: {config_path}")
+        raise FileNotFoundError(f"VITS config file not found: {config_path}")
+
+    logger.info(f"Loading VITS model from: {model_path}")
+    logger.info(f"Loading VITS config from: {config_path}")
+
+    try:
+        vits_hps_global = vits_utils.get_hparams_from_file(config_path)
+        vits_n_symbols_global = len(vits_hps_global.symbols) if hasattr(vits_hps_global, 'symbols') else 0
+        n_speakers_vits = getattr(vits_hps_global.data, 'n_speakers', 0) # 使用 getattr 更安全
+        vits_speakers_global = getattr(vits_hps_global, 'speakers', ['0']) # 可能是列表或字典
+        emotion_embedding_vits = getattr(vits_hps_global.data, 'emotion_embedding', False)
+
+        vits_net_g_global = VitsSynthesizerTrn(
+            vits_n_symbols_global,
+            vits_hps_global.data.filter_length // 2 + 1,
+            vits_hps_global.train.segment_size // vits_hps_global.data.hop_length,
+            n_speakers=n_speakers_vits,
+            emotion_embedding=emotion_embedding_vits,
+            **vits_hps_global.model  # 将模型参数解包传入
+        )
+        _ = vits_net_g_global.eval()
+
+        if torch.cuda.is_available() and device.lower() == "cuda":
+            vits_net_g_global = vits_net_g_global.to("cuda")
+            if is_half:
+                vits_net_g_global = vits_net_g_global.half()
+        else:
+            vits_net_g_global = vits_net_g_global.to("cpu")
+
+
+        vits_utils.load_checkpoint(model_path, vits_net_g_global)
+        logger.info("VITS model loaded successfully.")
+
+    except Exception as e:
+        logger.error(f"Error loading VITS model: {e}", exc_info=True)
+        vits_net_g_global = None # 确保加载失败时模型为空
+        raise  # 重新抛出异常，让调用者知道
+
+def vits_get_text_internal(text: str, hps, cleaned: bool = False):
+    """
+    内部文本处理函数，将文本转换为 VITS 模型所需的音素序列ID。
+    这里的 hps 是 VITS 的配置对象 (vits_hps_global)。
+    """
+    if cleaned:
+        text_norm = vits_text_to_sequence(text, hps.symbols, [])
+    else:
+        text_norm = vits_text_to_sequence(text, hps.symbols, hps.data.text_cleaners)
+
+    if getattr(hps.data, 'add_blank', False):
+        text_norm = vits_commons.intersperse(text_norm, 0)
+    text_norm = LongTensor(text_norm)
+    return text_norm
+
+async def get_vits_tts_audio_stream(
+    text: str,
+    language_code: str,
+    speaker_id: int = 0,
+    length_scale: float = 1.0,
+    noise_scale: float = 0.667,
+    noise_scale_w: float = 0.8,
+    # cleaned_flag: bool = False, # 假设从 text 中解析 [CLEANED]
+    # emotion_embedding_tensor: torch.Tensor = None # 如果支持并传递
+):
+    """
+    VITS TTS 核心推理逻辑，作为异步生成器返回音频块。
+    """
+    global vits_hps_global, vits_net_g_global, vits_speakers_global, device, is_half, logger, stream_mode, media_type
+
+    if vits_net_g_global is None or vits_hps_global is None:
+        logger.error("VITS Model not loaded. Cannot perform TTS.")
+        yield b'ERROR:VITS Model not loaded.'
+        return
+
+    # 1. 文本预处理和语言标记解析 (关键部分)
+    text = f"[{language_code}]{text}[{language_code}]"
+    print(text)
+    cleaned_flag = "[CLEANED]" in text # 你仍然可以保留这个标记，如果需要
+    if cleaned_flag:
+        processed_text = text.replace("[CLEANED]", "")
+    else:
+        processed_text = text
+
+    if not processed_text.strip():
+        logger.error("Processed text for VITS is empty.")
+        yield b'ERROR:Processed text is empty.'
+        return
+
+    # 2. 检查 Speaker ID
+    actual_n_speakers = getattr(vits_hps_global.data, 'n_speakers', 0)
+    if not (0 <= speaker_id < actual_n_speakers):
+        logger.error(f"Invalid VITS Speaker ID: {speaker_id}. Expected 0 to {actual_n_speakers - 1}.")
+        yield b'ERROR:Invalid VITS Speaker ID.'
+        return
+
+    # 3. 将文本转换为音素序列
+    try:
+        # 注意：这里传入的 `processed_text` 应该是纯净的、该语言的文本
+        # `vits_hps_global` 应该包含对应语言的 `symbols` 和 `text_cleaners`
+        stn_tst = vits_get_text_internal(processed_text, vits_hps_global, cleaned=cleaned_flag)
+    except Exception as e:
+        logger.error(f"Error during VITS text processing: {e}", exc_info=True)
+        yield b'ERROR:VITS text processing failed.'
+        return
+
+    # 4. 执行推理
+    audio_output_buffer = BytesIO() # 用于收集所有音频块（如果非流式）或当前块
+    try:
+        with no_grad(): # 确保在推理模式下
+            x_tst = stn_tst.unsqueeze(0).to(device)
+            x_tst_lengths = LongTensor([stn_tst.size(0)]).to(device)
+            sid_tensor = LongTensor([speaker_id]).to(device)
+            current_emotion_embedding = None # 实现情感嵌入加载逻辑（如果需要）
+
+            # 调用 VITS 模型的 infer 方法
+            # 注意：确保你的 VitsSynthesizerTrn.infer 方法返回的是 (audio_numpy_array, ...)
+            # 并且第一个元素是音频数据
+            # MoeGoe的infer返回 `o, attn, y_mask, (z, z_p, m_p, logs_p)`
+            # 我们需要 o[0][0,0].data.cpu().float().numpy()
+            inference_output = vits_net_g_global.infer(
+                x_tst,
+                x_tst_lengths,
+                sid=sid_tensor,
+                noise_scale=noise_scale,
+                noise_scale_w=noise_scale_w,
+                length_scale=length_scale,
+                emotion_embedding=current_emotion_embedding # 传递情感嵌入
+            )
+            audio_numpy = inference_output[0][0, 0].data.cpu().float().numpy()
+
+        # 5. 音频打包和流式处理
+        # 使用 GPT-SoVITS 的 pack_audio, pack_wav (全局函数)
+        # 注意：pack_audio 和 pack_wav 是从 GPT-SoVITS 的 api.py 来的，需要确保它们在作用域内
+        # 我们假设它们是全局可用的
+        audio_data_int16 = (audio_numpy * 32768).astype(np.int16)
+        current_sampling_rate = vits_hps_global.data.sampling_rate
+
+        # MoeGoe/VITS 通常一次性生成整个音频，所以“流式”在这里主要是指
+        # 服务器可以分块发送已生成的完整音频，而不是边生成边发送小片段。
+        # 如果你想实现真正的逐句流式，需要在 get_vits_tts_audio_stream 外层做文本切分和循环调用。
+        # 这里我们简化为一次生成并发送。
+
+        if stream_mode == "normal": # 分块发送已生成的音频 (如果音频很大)
+            # 对于 'normal' 流式，我们将完整的音频数据打包成目标格式，然后可以分块 yield
+            # 但由于 VITS 一次生成，这里简单地一次性 yield
+            temp_buffer = BytesIO()
+            if media_type == "wav":
+                sf.write(temp_buffer, audio_data_int16, current_sampling_rate, format='WAV')
+            elif media_type == "ogg":
+                sf.write(temp_buffer, audio_data_int16, current_sampling_rate, format='OGG', subtype='VORBIS')
+            elif media_type == "aac":
+                # 使用 pack_aac (来自GPT-SoVITS api.py)
+                process = subprocess.Popen([
+                    'ffmpeg', '-f', 's16le', '-ar', str(current_sampling_rate), '-ac', '1', '-i', 'pipe:0',
+                    '-c:a', 'aac', '-b:a', '192k', '-vn', '-f', 'adts', 'pipe:1'
+                ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                out_aac, _ = process.communicate(input=audio_data_int16.tobytes())
+                temp_buffer.write(out_aac)
+            else: # 默认为 wav
+                 sf.write(temp_buffer, audio_data_int16, current_sampling_rate, format='WAV')
+            temp_buffer.seek(0)
+            yield temp_buffer.read() # 一次性 yield
+        else: # "close" 模式，也是一次性生成和发送
+            if media_type == "wav":
+                sf.write(audio_output_buffer, audio_data_int16, current_sampling_rate, format='WAV')
+            elif media_type == "ogg":
+                sf.write(audio_output_buffer, audio_data_int16, current_sampling_rate, format='OGG', subtype='VORBIS')
+            elif media_type == "aac":
+                process = subprocess.Popen([
+                    'ffmpeg', '-f', 's16le', '-ar', str(current_sampling_rate), '-ac', '1', '-i', 'pipe:0',
+                    '-c:a', 'aac', '-b:a', '192k', '-vn', '-f', 'adts', 'pipe:1'
+                ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                out_aac, _ = process.communicate(input=audio_data_int16.tobytes())
+                audio_output_buffer.write(out_aac)
+            else: # 默认为 wav
+                sf.write(audio_output_buffer, audio_data_int16, current_sampling_rate, format='WAV')
+
+            audio_output_buffer.seek(0)
+            yield audio_output_buffer.getvalue()
+
+    except Exception as e:
+        logger.error(f"Error during VITS TTS inference or audio packing: {e}", exc_info=True)
+        yield b'ERROR:VITS TTS inference failed.'
+        return
+
+# --- FastAPI 端点定义 (VITS/MoeGoe 相关) ---
+# 假设 app = FastAPI() 已经在 api.py 中定义
+
+@app.post("/set_vits_model")
+async def set_vits_model_endpoint(request: Request):
+    """动态设置 VITS 模型和配置文件路径"""
+    global logger
+    try:
+        json_post_raw = await request.json()
+        vits_model_path = json_post_raw.get("vits_model_path")
+        vits_config_path = json_post_raw.get("vits_config_path")
+
+        if not vits_model_path or not vits_config_path:
+            return JSONResponse(
+                {"code": 400, "message": "vits_model_path and vits_config_path are required."},
+                status_code=400
+            )
+        # 路径可以是相对 api.py 的，或者绝对路径
+        # 为安全起见，最好对路径进行一些校验或限制
+        load_vits_model(vits_model_path, vits_config_path)
+        return JSONResponse({"code": 0, "message": "VITS model changed successfully."}, status_code=200)
+    except FileNotFoundError as fe:
+        logger.error(f"File not found when setting VITS model: {fe}")
+        return JSONResponse({"code": 404, "message": str(fe)}, status_code=404)
+    except Exception as e:
+        logger.error(f"Error setting VITS model: {e}", exc_info=True)
+        return JSONResponse({"code": 500, "message": f"Failed to set VITS model: {str(e)}"}, status_code=500)
+
+async def _handle_vits_tts_request(
+    text: str,
+    language_code: str, # 新增参数
+    speaker_id: int,
+    length_scale: float,
+    noise_scale: float,
+    noise_scale_w: float
+):
+    """内部处理函数，用于 GET 和 POST 端点共用逻辑"""
+    global logger, media_type, vits_net_g_global
+
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is required for VITS TTS")
+    if vits_net_g_global is None:
+        raise HTTPException(status_code=503, detail="VITS Model not loaded. Use /set_vits_model first.")
+
+    # 创建一个包装生成器来处理可能的错误标记并转换为HTTPException（如果非流式）
+    # 或者让客户端处理流中的错误标记
+    async def stream_wrapper():
+        async for chunk in get_vits_tts_audio_stream(
+            text=text,
+            language_code=language_code,
+            speaker_id=speaker_id,
+            length_scale=length_scale,
+            noise_scale=noise_scale,
+            noise_scale_w=noise_scale_w
+        ):
+            if isinstance(chunk, bytes) and chunk.startswith(b'ERROR:'):
+                error_message = chunk.decode().replace('ERROR:', '')
+                logger.error(f"Error from VITS TTS stream: {error_message}")
+                # 如果是流式，我们不能抛出HTTPException，因为头可能已经发送
+                # 如果不是流式，理论上可以在这里收集所有块，如果检测到错误则抛出
+                # 为了简化，我们让客户端处理流中的错误标记或不完整的流
+                # 或者，如果 stream_mode == "close"，我们可以在 get_vits_tts_audio_stream 中
+                # 不 yield 错误标记，而是直接 raise 一个自定义异常，然后在这里捕获
+                raise HTTPException(status_code=500, detail=f"VITS TTS failed: {error_message}")
+            yield chunk
+
+    return StreamingResponse(stream_wrapper(), media_type="audio/" + media_type)
+
+
+@app.post("/vits-tts/")
+async def vits_tts_endpoint_post(request: Request):
+    global logger
+    try:
+        json_post_raw = await request.json()
+        text = json_post_raw.get("text")
+        language_code = json_post_raw.get("language_code", "JA") # 例如 "ja", "zh", "en", "auto"
+        speaker_id = int(json_post_raw.get("speaker_id", 0))
+        length_scale = float(json_post_raw.get("length_scale", 1.0))
+        noise_scale = float(json_post_raw.get("noise_scale", 0.667))
+        noise_scale_w = float(json_post_raw.get("noise_scale_w", 0.8))
+
+        if not text:
+            return JSONResponse({"code": 400, "message": "Text is required."}, status_code=400)
+        
+        return await _handle_vits_tts_request(
+            text, language_code, speaker_id, length_scale, noise_scale, noise_scale_w
+        )
+    except ValueError as ve:
+        logger.error(f"Invalid parameter value in /vits-tts/ POST: {ve}", exc_info=True)
+        return JSONResponse({"code": 400, "message": f"Invalid parameter value: {str(ve)}"}, status_code=400)
+    except HTTPException as http_exc: # 捕获由 _handle_vits_tts_request 抛出的
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Unexpected error in /vits-tts/ POST endpoint: {e}", exc_info=True)
+        return JSONResponse({"code": 500, "message": f"Internal server error: {str(e)}"}, status_code=500)
+
+@app.get("/vits-tts/")
+async def vits_tts_endpoint_get(
+        text: str, # FastAPI 会自动从查询参数获取
+        language_code: str = "auto",
+        speaker_id: int = 0,
+        length_scale: float = 1.0,
+        noise_scale: float = 0.667,
+        noise_scale_w: float = 0.8
+):
+    """VITS TTS 端点 (GET)"""
+    global logger
+    try:
+        return await _handle_vits_tts_request(
+            text, language_code, speaker_id, length_scale, noise_scale, noise_scale_w
+        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"Unexpected error in /vits-tts/ GET endpoint: {e}", exc_info=True)
+        return JSONResponse({"code": 500, "message": f"Internal server error: {str(e)}"}, status_code=500)
+
 if __name__ == "__main__":
+       # 假设 g_config 已经从 config.py 或命令行参数初始化
+    default_vits_model_path_from_config = getattr(g_config, 'vits_model_path', os.path.join(now_dir, "moegoe", "lib", "seraphim.pth"))
+    default_vits_config_path_from_config = getattr(g_config, 'vits_config_path', os.path.join(now_dir, "moegoe", "lib", "seraphim.json"))
+
+    if default_vits_model_path_from_config and default_vits_config_path_from_config and \
+        os.path.exists(default_vits_model_path_from_config) and \
+        os.path.exists(default_vits_config_path_from_config):
+        try:
+           logger.info("Loading default VITS model on startup...")
+           load_vits_model(default_vits_model_path_from_config, default_vits_config_path_from_config)
+        except Exception as e:
+           logger.error(f"Failed to load default VITS model on startup: {e}", exc_info=True)
+    else:
+       logger.warning("Default VITS model or config path not found or not specified in config.py. "
+                      "Use /set_vits_model API to load a VITS model.")
     uvicorn.run(app, host=host, port=port, workers=1)
