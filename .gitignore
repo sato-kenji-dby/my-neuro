@@ -9,6 +9,7 @@ prompt.txt
 bert-model/
 Mnemosyne-bert/
 *.zip
+*.7z
 .vscode/
 model/
 recorded_audio/
