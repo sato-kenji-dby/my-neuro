@@ -8,6 +8,13 @@
 
 如果你想用全部都用本地推理，使用本地的大语言模型（LLM）推理或者微调。不基于第三方的API的话，那可以进入LLM-studio文件夹，里面有本地模型的推理、微调指导。同时，因为本地的大语言模型需要一定的显存，要想有一个还算不错的体验，建议显卡至少保证有12G显存大小。
 
+## QQ群：756741478
+## 客服
+
+如果部署的时候遇到处理不了的bug可以前往此链接：http://fake-neuro.natapp1.cc
+
+向肥牛客服询问，它会指导你如何处理项目可能出现的bug 不过大多数情况下不会有什么bug！也许..
+
 
 ## 计划清单（打✔的是已经实现的功能）
 
@@ -20,7 +27,7 @@
 - [x] 字幕和语音同步输出
 - [x] 语音定制：支持男、女声、各种角色声线切换等
 - [x] MCP支持：可使用MCP工具接入
-- [ ] 实时打断：支持随时打断模型对话
+- [x] 实时打断：支持随时打断模型对话
 - [ ] 真实情感：模拟真人的情绪变化状态，有自己的情绪状态。
 - [ ] 超吊的人机体验(类似真人交互设计，敬请期待)
 - [x] 动作表情：根据对话内容展示不同的表情与动作
@@ -46,6 +53,7 @@
 - [ ] 自由走动：模型自由在屏幕中移动
 
 ## 🚀 快速开始
+
 
 ## 新手设计一键部署项目（实验）
 
@@ -135,9 +143,9 @@ python tts_api.py -p 5000 -d cuda -s tts-model/FKTTS/fake_neuro.pth -dr tts-mode
 ```
 
 
-8.等待ASR和TTS都输出IP后，即可打开此链接下载红框内的zip文件：https://github.com/morettt/my-neuro/releases/tag/v4.1
+8.等待ASR和TTS都输出IP后，点击此链接下载zip文件：
 
-![image](https://github.com/user-attachments/assets/abfda3ad-ac20-4358-8438-6aed327e839a)
+https://github.com/morettt/my-neuro/releases/download/v4.3.3/live-2d.zip
 
 
 下载后解压是这样的，双击打开这个 肥牛.exe 文件
@@ -185,7 +193,10 @@ python tts_api.py -p 5000 -d cuda -s tts-model/FKTTS/fake_neuro.pth -dr tts-mode
 
 希望能在今年可以把上述所有的想法都实现。
 
+## 致谢
 
- ### 致谢
+QQ群:感谢 菊花茶洋参 帮忙制作肥牛app的封面
+
+感谢大佬的tts：
 GPT-SoVITS：https://github.com/RVC-Boss/GPT-SoVITS
 

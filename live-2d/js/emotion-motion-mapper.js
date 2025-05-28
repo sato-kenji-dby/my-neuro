@@ -40,7 +40,7 @@ class EmotionMotionMapper {
     // 解析文本，提取所有情绪标签和位置信息
     parseEmotionTagsWithPosition(text) {
         // 使用正则表达式匹配所有情绪标签 《xxx》
-        const pattern = /《([^》]+)》/g;
+        const pattern = /<([^>]+)>/g;
         const emotions = [];
         let match;
         
@@ -138,7 +138,7 @@ class EmotionMotionMapper {
     // 为了向后兼容，保留原有接口，但修改内部实现
     triggerMotionByEmotion(text) {
         // 提取第一个情绪标签
-        const match = text.match(/《([^》]+)》/);
+        const match = text.match(/<([^>]+)>/);
         if (match && match[1]) {
             const emotion = match[1];
             const motionIndex = this.emotionMap[emotion];
@@ -150,7 +150,7 @@ class EmotionMotionMapper {
         }
         
         // 移除所有情绪标签后返回纯文本
-        return text.replace(/《[^》]+》/g, '').trim();
+        return text.replace(/<[^>]+>/g, '').trim();
     }
     
     // 播放指定索引的动作

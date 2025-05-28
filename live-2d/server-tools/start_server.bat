@@ -1,6 +1,6 @@
 @echo off
 cd /d %~dp0
-echo ÕýÔÚÆô¶¯MCP·þÎñÆ÷...
+echo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½MCPï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...
 "..\node\node.exe" server.js
 if %ERRORLEVEL% NEQ 0 pause
 exit

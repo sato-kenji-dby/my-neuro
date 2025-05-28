@@ -13,6 +13,32 @@ global.isPlayingTTS = false;
 global.isProcessingBarrage = false;
 global.isProcessingUserInput = false;
 
+const { ipcRenderer } = require('electron');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+// 监听中断信号
+ipcRenderer.on('interrupt-tts', () => {
+    console.log('接收到中断信号');
+    logToTerminal('info', '接收到中断信号');
+    if (ttsProcessor) {
+        ttsProcessor.interrupt();
+    }
+    global.isPlayingTTS = false;
+    global.isProcessingUserInput = false;
+    global.isProcessingBarrage = false;
+    if (voiceChat && voiceChat.asrProcessor) {
+        setTimeout(() => {
+            voiceChat.resumeRecording();
+            console.log('ASR录音已恢复');
+            logToTerminal('info', 'ASR录音已恢复');
+        }, 200);
+    }
+    console.log('系统已复位，可以继续对话');
+    logToTerminal('info', '系统已复位，可以继续对话');
+});
+
 // 添加终端日志记录函数
 function logToTerminal(level, message) {
     // 将日志格式化，包含时间戳
@@ -51,11 +77,6 @@ try {
     // 让用户看到错误信息后手动关闭程序
     throw error; // 抛出错误，终止程序执行
 }
-
-const { ipcRenderer } = require('electron');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
 
 // 字幕管理
 let subtitleTimeout = null;

@@ -144,7 +144,18 @@ app.whenReady().then(() => {
     globalShortcut.register('CommandOrControl+Q', () => {
         app.quit();
     });
-    
+
+
+    // 添加打断功能的全局快捷键
+    globalShortcut.register('CommandOrControl+G', () => {
+        // 发送中断消息到渲染进程
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        if (mainWindow) {
+            mainWindow.webContents.send('interrupt-tts');
+        }
+    });
+
+
     globalShortcut.register('CommandOrControl+T', () => {
         const windows = BrowserWindow.getAllWindows();
         windows.forEach(win => {
@@ -152,6 +163,8 @@ app.whenReady().then(() => {
         });
     });
 });
+
+
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

@@ -41,6 +41,10 @@ class EnhancedTextProcessor {
         // 情绪动作同步相关
         this.emotionMapper = null;     // 情绪动作映射器引用
         this.currentEmotionMarkers = []; // 当前段落的情绪标记
+
+       // 用于中断的计时器引用
+       this._textAnimInterval = null;
+       this._renderFrameId = null;
         
         // 启动处理线程
         this.startProcessingThread();
@@ -181,7 +185,7 @@ class EnhancedTextProcessor {
         try {
             // 移除括号内容和星号包裹的内容用于TTS
             const textForTTS = text
-                // .replace(/《[^》]+》/g, '')     // 不移除情绪标签
+                .replace(/<[^>]+>/g, '')     // 不移除情绪标签
                 .replace(/（.*?）|\(.*?\)/g, '')  // 移除括号内容
                 .replace(/\*.*?\*/g, '');         // 移除星号包裹内容
                 
@@ -243,7 +247,7 @@ class EnhancedTextProcessor {
             if (this.emotionMapper) {
                 // 使用情绪映射器预处理文本，获取情绪标记
                 const processedInfo = this.emotionMapper.prepareTextForTTS(segmentText);
-                //segmentText = processedInfo.text; // 更新为去除情绪标签的纯文本
+                segmentText = processedInfo.text; // 更新为去除情绪标签的纯文本
                 emotionMarkers = processedInfo.emotionMarkers; // 保存情绪标记
                 
                 // 保存情绪标记用于后续动作触发
@@ -279,9 +283,9 @@ class EnhancedTextProcessor {
                 }
                 
                 // 持续更新
-                if (this.currentAudio) {
-                    requestAnimationFrame(updateMouth);
-                }
+               if (this.currentAudio && !this.shouldStop) {
+                   this._renderFrameId = requestAnimationFrame(updateMouth);
+               }
             };
 
             // 开始文本动画
@@ -294,6 +298,14 @@ class EnhancedTextProcessor {
                 charInterval = Math.max(30, Math.min(200, charInterval));
                 
                 textAnimInterval = setInterval(() => {
+                   if (this.shouldStop) {
+                       if (textAnimInterval) {
+                           clearInterval(textAnimInterval);
+                           textAnimInterval = null;
+                       }
+                       return;
+                   }
+
                     if (charDisplayIndex < segmentLength) {
                         // 逐步增加显示的文本
                         charDisplayIndex++;
@@ -320,6 +332,9 @@ class EnhancedTextProcessor {
                         }
                     }
                 }, charInterval);
+
+                // 保存计时器引用以便在中断时清除
+               this._textAnimInterval = textAnimInterval;
             };
             
             audio.oncanplaythrough = () => {
@@ -339,6 +354,13 @@ class EnhancedTextProcessor {
                 if (textAnimInterval) {
                     clearInterval(textAnimInterval);
                     textAnimInterval = null;
+                    this._textAnimInterval = null;
+                }
+
+                // 取消渲染帧
+                if (this._renderFrameId) {
+                    cancelAnimationFrame(this._renderFrameId);
+                    this._renderFrameId = null;
                 }
                 
                 // 音频播放完毕后，将当前段落全部显示
@@ -383,6 +405,13 @@ class EnhancedTextProcessor {
                 if (textAnimInterval) {
                     clearInterval(textAnimInterval);
                     textAnimInterval = null;
+                    this._textAnimInterval = null;
+                }
+
+                // 取消渲染帧
+                if (this._renderFrameId) {
+                    cancelAnimationFrame(this._renderFrameId);
+                    this._renderFrameId = null;
                 }
                 
                 URL.revokeObjectURL(audioUrl);
@@ -399,6 +428,13 @@ class EnhancedTextProcessor {
                 if (textAnimInterval) {
                     clearInterval(textAnimInterval);
                     textAnimInterval = null;
+                    this._textAnimInterval = null;
+                }
+
+                // 取消渲染帧
+                if (this._renderFrameId) {
+                    cancelAnimationFrame(this._renderFrameId);
+                    this._renderFrameId = null;
                 }
                 
                 this.currentAudio = null;
@@ -480,54 +516,144 @@ class EnhancedTextProcessor {
     }
 
     // 重置所有状态
-    reset() {
-        this.llmFullResponse = '';
-        this.displayedText = '';
-        this.currentSegmentText = '';
-        this.pendingSegment = '';
-        this.syncTextQueue = [];
-        this.currentEmotionMarkers = [];
-        
-        // 停止当前播放
-        if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio = null;
-        }
-        
-        // 清空所有队列
-        this.textSegmentQueue = [];
-        this.audioDataQueue = [];
-        
-        // 重置状态
-        this.isPlaying = false;
-        this.isProcessing = false;
-        this.shouldStop = false;
-        
-        // 重置嘴部动作
-        if (this.onAudioDataCallback) {
-            this.onAudioDataCallback(0);
-        }
-    }
+   reset() {
+       this.llmFullResponse = '';
+       this.displayedText = '';
+       this.currentSegmentText = '';
+       this.pendingSegment = '';
+       this.syncTextQueue = [];
+       this.currentEmotionMarkers = [];
 
-    // 立即停止所有处理
-    stop() {
-        this.shouldStop = true;
-        this.reset();
-        
-        // 隐藏字幕
-        if (typeof hideSubtitle === 'function') {
-            hideSubtitle();
-        }
-        
-        if (this.onEndCallback) {
-            this.onEndCallback();
-        }
-    }
-    
-    // 判断是否正在播放
-    isPlaying() {
-        return this.isPlaying || this.isProcessing || this.textSegmentQueue.length > 0 || this.audioDataQueue.length > 0;
-    }
+       // 停止当前播放
+       if (this.currentAudio) {
+           this.currentAudio.pause();
+           this.currentAudio = null;
+       }
+
+       // 清除所有计时器
+       if (this._textAnimInterval) {
+           clearInterval(this._textAnimInterval);
+           this._textAnimInterval = null;
+       }
+
+       if (this._renderFrameId) {
+           cancelAnimationFrame(this._renderFrameId);
+           this._renderFrameId = null;
+       }
+
+       // 清空所有队列
+       this.textSegmentQueue = [];
+       this.audioDataQueue = [];
+
+       // 重置状态
+       this.isPlaying = false;
+       this.isProcessing = false;
+       this.shouldStop = false;
+
+       // 重置嘴部动作
+       if (this.onAudioDataCallback) {
+           this.onAudioDataCallback(0);
+       }
+   }
+
+   // 立即打断TTS播放
+   interrupt() {
+       console.log('打断TTS播放...');
+
+       // 设置打断标志立即生效
+       this.shouldStop = true;
+
+       // 查找并清除所有可能的动画计时器
+       if (this._textAnimInterval) {
+           clearInterval(this._textAnimInterval);
+           this._textAnimInterval = null;
+       }
+
+       // 取消可能正在进行的渲染帧
+       if (this._renderFrameId) {
+           cancelAnimationFrame(this._renderFrameId);
+           this._renderFrameId = null;
+       }
+
+       // 立即停止当前音频播放并清除所有事件监听器
+       if (this.currentAudio) {
+           try {
+               // 移除所有事件监听器，防止onended等继续触发
+               this.currentAudio.onended = null;
+               this.currentAudio.onplay = null;
+               this.currentAudio.oncanplaythrough = null;
+               this.currentAudio.onerror = null;
+
+               // 暂停并释放音频
+               this.currentAudio.pause();
+               this.currentAudio.src = ""; // 清空音频源
+               this.currentAudio = null;
+           } catch (e) {
+               console.error('停止音频出错:', e);
+           }
+       }
+
+       // 清空所有队列和缓冲区
+       this.textSegmentQueue = [];
+       this.audioDataQueue = [];
+       this.pendingSegment = '';
+       this.llmFullResponse = '';
+       this.displayedText = '';
+       this.currentSegmentText = '';
+       this.syncTextQueue = [];
+       this.currentEmotionMarkers = [];
+
+       // 重置状态标志
+       this.isPlaying = false;
+       this.isProcessing = false;
+
+       // 恢复嘴形到默认状态
+       if (this.onAudioDataCallback) {
+           this.onAudioDataCallback(0); // 关闭嘴巴
+       }
+
+       // 立即隐藏字幕
+       if (typeof hideSubtitle === 'function') {
+           hideSubtitle();
+       }
+
+       // 执行结束回调，确保系统状态复位
+       if (this.onEndCallback) {
+           this.onEndCallback();
+       }
+
+       // 延迟重置shouldStop标志，确保所有处理都已停止
+       setTimeout(() => {
+           // 确保可以接收新的输入
+           this.shouldStop = false;
+
+           // 重新启动处理线程
+           this.startProcessingThread();
+           this.startPlaybackThread();
+
+           console.log('TTS处理器完全重置完成');
+       }, 300);
+   }
+
+   // 立即停止所有处理
+   stop() {
+       this.shouldStop = true;
+       this.reset();
+
+       // 隐藏字幕
+       if (typeof hideSubtitle === 'function') {
+           hideSubtitle();
+       }
+
+       if (this.onEndCallback) {
+           this.onEndCallback();
+       }
+   }
+
+   // 判断是否正在播放
+   isPlaying() {
+       return this.isPlaying || this.isProcessing || this.textSegmentQueue.length > 0 || this.audioDataQueue.length > 0;
+   }
 }
 
 // 导出TTS处理器类
