@@ -115,59 +115,9 @@ class EnhancedTextProcessor {
                 
                 // 设置当前段落的文本，用于文字动画
                 this.currentSegmentText = audioPackage.text;
+                //翻译
+                this.currentSegmentText = await this.translate(this.currentSegmentText);
                 
-                
-            // 翻译文本
-            if (1){
-                // LLM配置
-                const {GoogleGenAI} = require("@google/genai");
-                this.API_KEY = this.config.llm.api_key;
-                this.API_URL = this.config.llm.api_url;
-                this.MODEL = this.config.llm.model;
-                this.provider = this.config.llm.provider;
-                if (this.provider === 'google_aistudio')
-                    this.ai = new GoogleGenAI({ apiKey: this.API_KEY });
-                    this.chat = this.ai.chats.create({
-                    model: this.MODEL,
-                    history: [
-                        ],
-                    });
-
-                // process.stdout.write("fullResponse");
-                const response = await this.ai.models.generateContent({
-                        model: this.MODEL,
-                        contents: this.currentSegmentText,
-                        config: {
-                            systemInstruction: `You are a highly skilled and precise translation engine. Your sole task is to translate the provided Japanese text accurately and fluently into Simplified Chinese.
-                                **Instructions:**
-                                1.  **Output Format:** ONLY output the translated Simplified Chinese text. Do NOT include the original Japanese text in your response. Do NOT add any prefixes, suffixes, explanations, or any other text体が translated content itself.
-                                2.  **Accuracy and Fluency:** Prioritize natural-sounding and contextually appropriate Simplified Chinese. Maintain the original meaning and tone of the Japanese text as closely as possible.
-                                3.  **Target Audience:** Assume the translation is for a general Chinese-speaking audience.
-                                4.  **Style:** If the original Japanese text has a specific style (e.g., formal, informal, emotional, technical), try to reflect that style pobreza in the Chinese translation, while ensuring naturalness.
-                                5.  **Proper Nouns and Terminology:**
-                                    *   For common Japanese proper nouns (names of people, places, organizations) that have established Chinese translations, use the established translation.
-                                    *   For less common proper nouns or specific in-game/in-universe terminology, if no standard translation exists, you may use a a transliteration (音译) or a descriptive translation (意译) that is clear and consistent. If transliterating, aim for common and recognizable Chinese characters.
-                                    *   Do NOT provide multiple translation options for a single term within the output. Choose the best one.
-                                6.  **Handling Ambiguity:** If a Japanese phrase is ambiguous, translate it based on the most likely anpassung in the given (limited) context, aiming for a generally understandable interpretation.
-                                7.  **No Extra Information:** Do NOT explain your translation choices. Do NOT ask clarifying questions. Do NOT add any disclaimers. Your entire output must be the Chinese translation.
-
-                                **Example Interaction (Conceptual):**
-                                *   **User (Input to you, the translation engine):** こんにちは、世界！
-                                *   **You (Your Output):** 你好，世界！
-                                *   **User:** あの日の約束、覚えてる？
-                                *   **You:** 还记得那一天的约定吗？
-                                The following is some reversed key words for the context:
-                                *  **User:** Seraphim。 (as a name in Katagana)
-                                *  **You:** 塞拉菲姆。
-                                *  **User:** 隊長 (たいちょう)。 (as a second person pronoun)
-                                *  **You:** 指挥使。
-                                **Your only function is to receive Japanese text and output its Simplified Chinese translation. Nothing else.**`,
-                        },
-                    });
-                    this.currentSegmentText = response.text;
-                    // fullResponse = response.text;
-                    process.stdout.write("\nTranslated:" + this.currentSegmentText);
-                }
                 // 播放音频并同步显示文本
                 await this.playAudioWithTextSync(audioPackage.audio);
             }
@@ -211,12 +161,44 @@ class EnhancedTextProcessor {
         }
     }
 
+    async translate(text){
+        // 翻译文本
+        if (this.config.translator.enabled){
+            // LLM配置
+            const {GoogleGenAI} = require("@google/genai");
+            this.API_KEY = this.config.llm.api_key;
+            this.API_URL = this.config.llm.api_url;
+            this.MODEL = this.config.llm.model;
+            this.provider = this.config.llm.provider;
+            if (this.provider === 'google_aistudio')
+                this.ai = new GoogleGenAI({ apiKey: this.API_KEY });
+                this.chat = this.ai.chats.create({
+                model: this.MODEL,
+                history: [
+                    ],
+                });
+
+            // process.stdout.write("fullResponse");
+            process.stdout.write("\nOriginal:" + text);
+            const response = await this.ai.models.generateContent({
+                    model: this.MODEL,
+                    contents: text,
+                    config: {
+                        systemInstruction: this.config.translator.prompt
+                    },
+                });
+                text = response.text;
+                // fullResponse = response.text;
+                process.stdout.write("\nTranslated:" + text);
+            }
+        return text
+    }
     // 播放单个音频片段，同时实现文本动画同步和情绪动作同步
     async playAudioWithTextSync(audioBlob) {
         if (!audioBlob) return;
         
         await this.initAudioContext();
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             if (this.shouldStop) {
                 resolve();
                 return;
@@ -248,7 +230,9 @@ class EnhancedTextProcessor {
                 // 使用情绪映射器预处理文本，获取情绪标记
                 const processedInfo = this.emotionMapper.prepareTextForTTS(segmentText);
                 segmentText = processedInfo.text; // 更新为去除情绪标签的纯文本
+                // segmentText = await this.translate(processedInfo.text)
                 emotionMarkers = processedInfo.emotionMarkers; // 保存情绪标记
+                // process.stdout.write(emotionMarkers);
                 
                 // 保存情绪标记用于后续动作触发
                 this.currentEmotionMarkers = [...emotionMarkers];
