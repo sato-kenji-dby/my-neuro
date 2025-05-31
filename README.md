@@ -8,12 +8,17 @@
 
 如果你想用全部都用本地推理，使用本地的大语言模型（LLM）推理或者微调。不基于第三方的API的话，那可以进入LLM-studio文件夹，里面有本地模型的推理、微调指导。同时，因为本地的大语言模型需要一定的显存，要想有一个还算不错的体验，建议显卡至少保证有12G显存大小。
 
+English Documentation: [English Version](./README_English.md)
+
 ## QQ群：756741478
 ## 客服
 
 如果部署的时候遇到处理不了的bug可以前往此链接：http://fake-neuro.natapp1.cc
 
 向肥牛客服询问，它会指导你如何处理项目可能出现的bug 不过大多数情况下不会有什么bug！也许..
+
+同时我也会看后台的对话记录，看看它到底能不能解决问题，如果解决不了，我就会给它的数据库写上对应的
+处理方法，加载到它的知识库里面。下次遇到同样的bug大概率它自己就能解决了。所以，遇到问题就多多和肥牛聊天吧。
 
 
 ## 计划清单（打✔的是已经实现的功能）
@@ -36,6 +41,7 @@
 
 ### 扩展功能
 - [ ] 桌面控制：支持语音控制打开软件等操作
+- [ ] 国外直播平台的接入
 - [x] 直播功能：可在哔哩哔哩平台直播
 - [ ] AI讲课：选择一个主题，让AI给你讲课。中途可提问。偏门课程可植入资料到数据库让AI理解
 - [x] 替换各类live 2d模型
@@ -139,13 +145,13 @@ python Mnemosyne-bert\api_go.py
 cd tts-studio
 
 #启动TTS服务
-python tts_api.py -p 5000 -d cuda -s tts-model/FKTTS/fake_neuro.pth -dr tts-model/FKTTS/sama.wav -dt "Hold on please, I'm busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl "en"
+python tts_api.py -p 5000 -d cuda -s tts-model/merge.pth -dr tts-model/neuro/01.wav -dt "Hold on please, I'm busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl "en"
 ```
 
 
 8.等待ASR和TTS都输出IP后，点击此链接下载zip文件：
 
-https://github.com/morettt/my-neuro/releases/download/v4.3.3/live-2d.zip
+https://github.com/morettt/my-neuro/releases/download/v4.3.4/live-2d.zip
 
 
 下载后解压是这样的，双击打开这个 肥牛.exe 文件
