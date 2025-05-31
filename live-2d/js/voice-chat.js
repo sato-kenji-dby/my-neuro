@@ -2,6 +2,7 @@ const { ipcRenderer } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const {GoogleGenAI, createUserContent, createPartFromUri} = require("@google/genai");
 
 class VoiceChatInterface {
     constructor(vadUrl, asrUrl, ttsProcessor, showSubtitle, hideSubtitle, config) {
@@ -12,6 +13,15 @@ class VoiceChatInterface {
         this.API_KEY = this.config.llm.api_key;
         this.API_URL = this.config.llm.api_url;
         this.MODEL = this.config.llm.model;
+        this.provider = this.config.llm.provider;
+        if (this.provider === 'google_aistudio')
+            this.ai = new GoogleGenAI({ apiKey: this.API_KEY });
+            this.chat = this.ai.chats.create({
+            model: this.MODEL,
+            history: [
+                ],
+            });
+
         
         this.ttsProcessor = ttsProcessor;
         this.showSubtitle = showSubtitle;
@@ -312,37 +322,151 @@ ${memoryContent}`;
                 messagesForAPI = JSON.parse(JSON.stringify(this.messages));
             }
 
-            // 如果需要截图，创建多模态消息
-            if (needScreenshot) {
-                try {
-                    console.log("需要截图");
-                    const screenshotPath = await this.takeScreenshot();
-                    const base64Image = await this.imageToBase64(screenshotPath);
-
-                    // 创建包含图片的消息用于API请求
-                    // 找到最后一条用户消息替换为多模态消息
-                    const lastUserMsgIndex = messagesForAPI.findIndex(
-                        msg => msg.role === 'user' && msg.content === prompt
-                    );
-
-                    if (lastUserMsgIndex !== -1) {
-                        messagesForAPI[lastUserMsgIndex] = {
-                            'role': 'user',
-                            'content': [
-                                {'type': 'text', 'text': prompt},
-                                {'type': 'image_url', 'image_url': {'url': `data:image/jpeg;base64,${base64Image}`}}
-                            ]
-                        };
-                    }
-                } catch (error) {
-                    console.error("截图处理失败:", error);
-                    // 如果截图失败，使用纯文本消息，已经设置好了
-                }
-            }
-
             // 调试消息数组
             console.log(`发送给LLM的消息数: ${messagesForAPI.length}`);
 
+            if (this.provider === 'google_aistudio'){
+                try {
+                    // 如果需要截图，创建多模态消息
+                    let config = {message: prompt,
+                        config: {
+                            systemInstruction: this.messages[0].content,
+                        }}
+                    let result;
+
+                    if (needScreenshot) {
+                        try {
+                            console.log("需要截图");
+                            
+                            const screenshotPath = await this.takeScreenshot();
+
+                            // 处理Google AI Studio的截图
+                            const image = await this.ai.files.upload({
+                                file: screenshotPath,
+                            });
+                            console.log("上传截图成功:", image.uri);
+
+                            const config_pic = {
+                                model: this.MODEL,
+                                config: {
+                                    systemInstruction: this.messages[0].content,
+                                },
+                                contents: [
+                                    createUserContent([
+                                        prompt,
+                                        createPartFromUri(image.uri, image.mimeType),
+                                    ]),
+                                ]
+                            }
+                            process.stdout.write(prompt);
+                            result = await this.ai.models.generateContentStream(config_pic)
+                            // result = await this.chat.sendMessageStream(message=prompt, config=config)
+                            // process.stdout.write("su");
+                        } catch (error) {
+                            console.error("截图处理失败:", error);
+                            // 如果截图失败，使用纯文本消息，已经设置好了
+                            config = {message: prompt,
+                                config: {
+                                    systemInstruction: this.messages[0].content,
+                                }
+                            }
+                            process.stdout.write(error);
+                            result = await this.chat.sendMessageStream(config);
+                        }
+                    }
+                    else{
+                        // const result = await this.chat.sendMessageStream(config);
+                        result = await this.chat.sendMessageStream(config);
+                    }
+                    
+                    for await (const chunk of result) {
+                        fullResponse += chunk.text;
+                        this.ttsProcessor.addStreamingText(chunk.text);
+                        process.stdout.write(chunk.text);
+                        process.stdout.write("_".repeat(80));
+                    }
+
+                    // if (1){
+                    //     process.stdout.write("fullResponse");
+                    //     const response = await this.ai.models.generateContent({
+                    //         model: "gemini-2.0-flash",
+                    //         contents: fullResponse,
+                    //         config: {
+                    //             systemInstruction: `You are a highly skilled and precise translation engine. Your sole task is to translate the provided Japanese text accurately and fluently into Simplified Chinese.
+                    //                 **Instructions:**
+                    //                 1.  **Output Format:** ONLY output the translated Simplified Chinese text. Do NOT include the original Japanese text in your response. Do NOT add any prefixes, suffixes, explanations, or any other text体が translated content itself.
+                    //                 2.  **Accuracy and Fluency:** Prioritize natural-sounding and contextually appropriate Simplified Chinese. Maintain the original meaning and tone of the Japanese text as closely as possible.
+                    //                 3.  **Target Audience:** Assume the translation is for a general Chinese-speaking audience.
+                    //                 4.  **Style:** If the original Japanese text has a specific style (e.g., formal, informal, emotional, technical), try to reflect that style pobreza in the Chinese translation, while ensuring naturalness.
+                    //                 5.  **Proper Nouns and Terminology:**
+                    //                     *   For common Japanese proper nouns (names of people, places, organizations) that have established Chinese translations, use the established translation.
+                    //                     *   For less common proper nouns or specific in-game/in-universe terminology, if no standard translation exists, you may use a a transliteration (音译) or a descriptive translation (意译) that is clear and consistent. If transliterating, aim for common and recognizable Chinese characters.
+                    //                     *   Do NOT provide multiple translation options for a single term within the output. Choose the best one.
+                    //                 6.  **Handling Ambiguity:** If a Japanese phrase is ambiguous, translate it based on the most likely anpassung in the given (limited) context, aiming for a generally understandable interpretation.
+                    //                 7.  **No Extra Information:** Do NOT explain your translation choices. Do NOT ask clarifying questions. Do NOT add any disclaimers. Your entire output must be the Chinese translation.
+
+                    //                 **Example Interaction (Conceptual):**
+                    //                 *   **User (Input to you, the translation engine):** こんにちは、世界！
+                    //                 *   **You (Your Output):** 你好，世界！
+                    //                 *   **User:** あの日の約束、覚えてる？
+                    //                 *   **You:** 还记得那一天的约定吗？
+                    //                 **Your only function is to receive Japanese text and output its Simplified Chinese translation. Nothing else.**`,
+                    //         },
+                    //     });
+                    //     // fullResponse = response.text;
+                    //     // process.stdout.write(fullResponse);
+                    // }
+                    
+                    // process.stdout.write("line388");
+                    if (needScreenshot){
+                        const config_reminder = {message: "刚才我向你询问了一张图片有关：" + prompt + "。你的回答是:" + fullResponse,
+                            config: {
+                                systemInstruction: this.messages[0].content,
+                            }}
+                        const diacarded = await this.chat.sendMessage(config_reminder);
+                        process.stdout.write("reminder used");
+                        process.stdout.write(diacarded.text);
+                    }
+
+                    this.messages.push({'role': 'assistant', 'content': fullResponse});
+                    if (this.enableContextLimit) {
+                        this.trimMessages();
+                    }
+                } catch (error) {
+                        process.stdout.write("Google AI Studio error:", error);
+                        this.showSubtitle(error.message, 3000);
+                        this.asrProcessor.resumeRecording();
+                        setTimeout(() => this.hideSubtitle(), 3000);
+                }
+            }
+            else if (this.provider !== 'google_aistudio') {
+                // 如果需要截图，创建多模态消息
+                if (needScreenshot) {
+                    try {
+                        console.log("需要截图");
+                        const screenshotPath = await this.takeScreenshot();
+                        const base64Image = await this.imageToBase64(screenshotPath);
+
+                        // 创建包含图片的消息用于API请求
+                        // 找到最后一条用户消息替换为多模态消息
+                        const lastUserMsgIndex = messagesForAPI.findIndex(
+                            msg => msg.role === 'user' && msg.content === prompt
+                        );
+
+                        if (lastUserMsgIndex !== -1) {
+                            messagesForAPI[lastUserMsgIndex] = {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {'type': 'image_url', 'image_url': {'url': `data:image/jpeg;base64,${base64Image}`}}
+                                ]
+                            };
+                        }
+                    } catch (error) {
+                        console.error("截图处理失败:", error);
+                        // 如果截图失败，使用纯文本消息，已经设置好了
+                    }
+                }
             // 发送请求到LLM
             const response = await fetch(`${this.API_URL}/chat/completions`, {
                 method: 'POST',
@@ -356,83 +480,87 @@ ${memoryContent}`;
                     stream: true
                 })
             });
-
-            if (!response.ok) {
-                // 根据HTTP状态码提供具体错误信息
-                let errorMessage = "";
-                switch(response.status) {
-                    case 401:
-                        errorMessage = "API密钥验证失败，请检查你的API密钥";
-                        break;
-                    case 403:
-                        errorMessage = "API访问被禁止，你的账号可能被限制";
-                        break;
-                    case 404:
-                        errorMessage = "API接口未找到，请检查API地址";
-                        break;
-                    case 429:
-                        errorMessage = "请求过于频繁，超出API限制";
-                        break;
-                    case 500:
-                    case 502:
-                    case 503:
-                    case 504:
-                        errorMessage = "服务器错误，AI服务当前不可用";
-                        break;
-                    default:
-                        errorMessage = `API错误: ${response.status} ${response.statusText}`;
+                if (!response.ok) {
+                    // 根据HTTP状态码提供具体错误信息
+                    let errorMessage = "";
+                    switch(response.status) {
+                        case 401:
+                            errorMessage = "API密钥验证失败，请检查你的API密钥";
+                            break;
+                        case 403:
+                            errorMessage = "API访问被禁止，你的账号可能被限制";
+                            break;
+                        case 404:
+                            errorMessage = "API接口未找到，请检查API地址";
+                            break;
+                        case 429:
+                            errorMessage = "请求过于频繁，超出API限制";
+                            break;
+                        case 500:
+                        case 502:
+                        case 503:
+                        case 504:
+                            errorMessage = "服务器错误，AI服务当前不可用";
+                            break;
+                        default:
+                            errorMessage = `API错误: ${response.status} ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
                 }
-                throw new Error(errorMessage);
-            }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        // 确保所有待处理文本都被发送到TTS
+                        this.ttsProcessor.finalizeStreamingText();
+                        break;
+                    }
 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) {
-                    // 确保所有待处理文本都被发送到TTS
-                    this.ttsProcessor.finalizeStreamingText();
-                    break;
-                }
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n');
 
-                const text = decoder.decode(value);
-                const lines = text.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            if (line.includes('[DONE]')) continue;
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        if (line.includes('[DONE]')) continue;
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.choices[0].delta.content) {
+                                    const newContent = data.choices[0].delta.content;
+                                    fullResponse += newContent;
 
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            if (data.choices[0].delta.content) {
-                                const newContent = data.choices[0].delta.content;
-                                fullResponse += newContent;
-
-                                // 将新的文本片段传递给TTS处理器进行实时处理
-                                this.ttsProcessor.addStreamingText(newContent);
+                                    // 将新的文本片段传递给TTS处理器进行实时处理
+                                    this.ttsProcessor.addStreamingText(newContent);
+                                }
+                            } catch (e) {
+                                console.error('解析响应错误:', e);
                             }
-                        } catch (e) {
-                            console.error('解析响应错误:', e);
                         }
+                    }
+                }
+
+                if (fullResponse) {
+                    // 保存原始回复（包含情绪标签）到上下文
+                    this.messages.push({'role': 'assistant', 'content': fullResponse});
+
+                    // 在接收响应后再次进行消息裁剪
+                    if (this.enableContextLimit) {
+                        this.trimMessages();
                     }
                 }
             }
 
-            if (fullResponse) {
-                // 保存原始回复（包含情绪标签）到上下文
-                this.messages.push({'role': 'assistant', 'content': fullResponse});
+            
 
-                // 在接收响应后再次进行消息裁剪
-                if (this.enableContextLimit) {
-                    this.trimMessages();
-                }
-            }
+            
         } catch (error) {
             console.error("LLM处理错误:", error);
+            process.stdout.write(error);
 
             // 检查错误类型，显示具体错误信息
-            let errorMessage = "抱歉，出现了一个错误";
+            let errorMessage = "抱歉，出现了一个错误 voice";
 
             if (error.message.includes("API密钥验证失败")) {
                 errorMessage = "API密钥错误，请检查配置";
@@ -450,7 +578,8 @@ ${memoryContent}`;
                 errorMessage = "解析API响应出错，请重试";
             }
 
-            this.showSubtitle(errorMessage, 3000);
+            // this.showSubtitle(errorMessage, 3000);
+            this.showSubtitle(error.message, 3000);
             // 出错时也要解锁ASR
             this.asrProcessor.resumeRecording();
             // 出错时也要隐藏字幕
