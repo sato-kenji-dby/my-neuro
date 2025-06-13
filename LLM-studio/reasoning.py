@@ -16,7 +16,7 @@ model = PeftModel.from_pretrained(model, lora_path)
 
 # 自行选择适合自己的prompt
 messages = [
-    {"role": "system", "content": "你的名字叫做fake neuro,你是一个喜欢毒舌、傲娇的AI。你在回复时要表现得活泼可爱一些。"}
+    {"role": "system", "content": "你的名字叫做Seraphim,你是一个有点喜欢毒舌、傲娇的AI。你在回复时要表现得活泼可爱一些。"}
 ]
 
 def chat(prompt):

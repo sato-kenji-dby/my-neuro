@@ -121,7 +121,7 @@ ${memoryContent}`;
                 // 只追加新的对话内容，而不是覆盖整个文件
                 if (lastUserMsg && lastAIMsg) {
                     // 构建要追加的新对话内容 - 不包含时间戳和空行
-                    const newContent = `【用户】: ${lastUserMsg.content}\n【Fake Neuro】: ${lastAIMsg.content}\n`;
+                    const newContent = `【用户】: ${lastUserMsg.content}\n【Seraphim】: ${lastAIMsg.content}\n`;
 
                     // 追加到对话记录文件
                     try {
@@ -604,7 +604,7 @@ ${memoryContent}`;
     addChatMessage(role, content) {
         const chatMessages = document.getElementById('chat-messages');
         const messageElement = document.createElement('div');
-        messageElement.innerHTML = `<strong>${role === 'user' ? '你' : 'Fake Neuro'}:</strong> ${content}`;
+        messageElement.innerHTML = `<strong>${role === 'user' ? '你' : 'Seraphim'}:</strong> ${content}`;
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -721,7 +721,7 @@ ${memoryContent}`;
                 }
 
                 // 构建要追加的弹幕对话内容 - 不包含时间戳和空行
-                const newContent = `【弹幕】[${nickname}]: ${text}\n【Fake Neuro】: ${fullResponse}\n`;
+                const newContent = `【弹幕】[${nickname}]: ${text}\n【Seraphim】: ${fullResponse}\n`;
 
                 // 追加到对话记录文件
                 try {
