@@ -1,167 +1,167 @@
 // 改进的文本处理器 - 与情绪动作同步
 class EnhancedTextProcessor {
-    constructor(ttsUrl, onAudioDataCallback, onStartCallback, onEndCallback, config = null) {
-        this.config = config || {};
-        this.ttsUrl = ttsUrl;
-        this.onAudioDataCallback = onAudioDataCallback;
-        this.onStartCallback = onStartCallback;
-        this.onEndCallback = onEndCallback;
-        this.language = this.config.tts?.language || "zh"; // 从配置中获取语言设置
+   constructor(ttsUrl, onAudioDataCallback, onStartCallback, onEndCallback, config = null) {
+       this.config = config || {};
+       this.ttsUrl = ttsUrl;
+       this.onAudioDataCallback = onAudioDataCallback;
+       this.onStartCallback = onStartCallback;
+       this.onEndCallback = onEndCallback;
+       this.language = this.config.tts?.language || "zh"; // 从配置中获取语言设置
 
-        // 单一队列设计
-        this.textSegmentQueue = [];    // 待处理的文本段
-        this.audioDataQueue = [];      // 已获得音频数据但尚未播放
-        
-        // 处理状态标志
-        this.isProcessing = false;     // 正在处理文本段
-        this.isPlaying = false;        // 正在播放音频
-        this.shouldStop = false;       // 停止标志
-        
-        // 音频处理相关
-        this.audioContext = null;
-        this.analyser = null;
-        this.dataArray = null;
-        this.currentAudio = null;
-        
-        // 标点符号定义
-        this.punctuations = [',', '。', '，', '？', '!', '！', '；', ';', '：', ':'];
-        
-        // 当前要显示的完整文本
-        this.currentFullText = '';
-        
-        // 临时存储未处理的文本片段
-        this.pendingSegment = '';
-        
-        // 文字同步相关
-        this.llmFullResponse = '';     // LLM返回的完整回复文本
-        this.displayedText = '';       // 当前已经显示的文本
-        this.currentSegmentText = '';  // 当前正在播放的音频段落对应的文本
-        this.syncTextQueue = [];       // 文本段落队列，与音频段落队列对应
-        
-        // 情绪动作同步相关
-        this.emotionMapper = null;     // 情绪动作映射器引用
-        this.currentEmotionMarkers = []; // 当前段落的情绪标记
+       // 单一队列设计
+       this.textSegmentQueue = [];    // 待处理的文本段
+       this.audioDataQueue = [];      // 已获得音频数据但尚未播放
+
+       // 处理状态标志
+       this.isProcessing = false;     // 正在处理文本段
+       this.isPlaying = false;        // 正在播放音频
+       this.shouldStop = false;       // 停止标志
+
+       // 音频处理相关
+       this.audioContext = null;
+       this.analyser = null;
+       this.dataArray = null;
+       this.currentAudio = null;
+
+       // 标点符号定义
+       this.punctuations = [',', '。', '，', '？', '!', '！', '；', ';', '：', ':'];
+
+       // 当前要显示的完整文本
+       this.currentFullText = '';
+
+       // 临时存储未处理的文本片段
+       this.pendingSegment = '';
+
+       // 文字同步相关
+       this.llmFullResponse = '';     // LLM返回的完整回复文本
+       this.displayedText = '';       // 当前已经显示的文本
+       this.currentSegmentText = '';  // 当前正在播放的音频段落对应的文本
+       this.syncTextQueue = [];       // 文本段落队列，与音频段落队列对应
+
+       // 情绪动作同步相关
+       this.emotionMapper = null;     // 情绪动作映射器引用
+       this.currentEmotionMarkers = []; // 当前段落的情绪标记
 
        // 用于中断的计时器引用
        this._textAnimInterval = null;
        this._renderFrameId = null;
-        
-        // 启动处理线程
-        this.startProcessingThread();
-        this.startPlaybackThread();
-    }
 
-    // 设置情绪动作映射器
-    setEmotionMapper(emotionMapper) {
-        this.emotionMapper = emotionMapper;
-    }
+       // 启动处理线程
+       this.startProcessingThread();
+       this.startPlaybackThread();
+   }
 
-    // 初始化音频上下文
-    async initAudioContext() {
-        if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            this.analyser = this.audioContext.createAnalyser();
-            this.analyser.fftSize = 256;
-            this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        }
-    }
+   // 设置情绪动作映射器
+   setEmotionMapper(emotionMapper) {
+       this.emotionMapper = emotionMapper;
+   }
 
-    // 启动文本处理线程 - 顺序处理文本段
-    startProcessingThread() {
-        const processNextSegment = async () => {
-            if (this.shouldStop) return;
-            
-            // 当有文本段待处理且当前没有处理中的文本段时
-            if (this.textSegmentQueue.length > 0 && !this.isProcessing) {
-                this.isProcessing = true;
-                const segment = this.textSegmentQueue.shift();
-                
-                try {
-                    // 将文本段添加到同步队列，用于后续文本动画显示
-                    this.syncTextQueue.push(segment);
-                    
-                    // 处理单个文本段
-                    const audioData = await this.convertTextToSpeech(segment);
-                    if (audioData) {
-                        // 将音频数据和对应的文本作为一个包加入队列
-                        this.audioDataQueue.push({
-                            audio: audioData,
-                            text: segment
-                        });
-                    }
-                } catch (error) {
-                    console.error('TTS处理错误:', error);
-                }
-                
-                this.isProcessing = false;
-            }
-            
-            // 继续检查队列
-            setTimeout(processNextSegment, 50);
-        };
-        
-        // 开始处理循环
-        processNextSegment();
-    }
+   // 初始化音频上下文
+   async initAudioContext() {
+       if (!this.audioContext) {
+           this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+           this.analyser = this.audioContext.createAnalyser();
+           this.analyser.fftSize = 256;
+           this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+       }
+   }
 
-    // 启动音频播放线程 - 顺序播放音频
-    startPlaybackThread() {
-        const playNextAudio = async () => {
-            if (this.shouldStop) return;
-            
-            // 当有音频数据待播放且当前没有播放中的音频时
-            if (this.audioDataQueue.length > 0 && !this.isPlaying) {
-                const audioPackage = this.audioDataQueue.shift();
-                
-                // 设置当前段落的文本，用于文字动画
-                this.currentSegmentText = audioPackage.text;
+   // 启动文本处理线程 - 顺序处理文本段
+   startProcessingThread() {
+       const processNextSegment = async () => {
+           if (this.shouldStop) return;
+
+           // 当有文本段待处理且当前没有处理中的文本段时
+           if (this.textSegmentQueue.length > 0 && !this.isProcessing) {
+               this.isProcessing = true;
+               const segment = this.textSegmentQueue.shift();
+
+               try {
+                   // 将文本段添加到同步队列，用于后续文本动画显示
+                   this.syncTextQueue.push(segment);
+
+                   // 处理单个文本段
+                   const audioData = await this.convertTextToSpeech(segment);
+                   if (audioData) {
+                       // 将音频数据和对应的文本作为一个包加入队列
+                       this.audioDataQueue.push({
+                           audio: audioData,
+                           text: segment
+                       });
+                   }
+               } catch (error) {
+                   console.error('TTS处理错误:', error);
+               }
+
+               this.isProcessing = false;
+           }
+
+           // 继续检查队列
+           setTimeout(processNextSegment, 50);
+       };
+
+       // 开始处理循环
+       processNextSegment();
+   }
+
+   // 启动音频播放线程 - 顺序播放音频
+   startPlaybackThread() {
+       const playNextAudio = async () => {
+           if (this.shouldStop) return;
+
+           // 当有音频数据待播放且当前没有播放中的音频时
+           if (this.audioDataQueue.length > 0 && !this.isPlaying) {
+               const audioPackage = this.audioDataQueue.shift();
+
+               // 设置当前段落的文本，用于文字动画
+               this.currentSegmentText = audioPackage.text;
                 //翻译
                 this.currentSegmentText = await this.translate(this.currentSegmentText);
-                
-                // 播放音频并同步显示文本
-                await this.playAudioWithTextSync(audioPackage.audio);
-            }
-            
-            // 继续检查队列
-            setTimeout(playNextAudio, 50);
-        };
-        
-        // 开始播放循环
-        playNextAudio();
-    }
 
-    // 将文本转换为语音
-    async convertTextToSpeech(text) {
-        try {
-            // 移除括号内容和星号包裹的内容用于TTS
-            const textForTTS = text
-                .replace(/<[^>]+>/g, '')     // 不移除情绪标签
-                .replace(/（.*?）|\(.*?\)/g, '')  // 移除括号内容
-                .replace(/\*.*?\*/g, '');         // 移除星号包裹内容
-                
-            const response = await fetch(this.ttsUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    text: textForTTS,
-                    text_language: this.language  // 使用配置中的语言
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('TTS请求失败: ' + response.status);
-            }
-            
-            return await response.blob();
-        } catch (error) {
-            console.error('TTS转换错误:', error);
-            return null;
-        }
-    }
+               // 播放音频并同步显示文本
+               await this.playAudioWithTextSync(audioPackage.audio);
+           }
 
-    async translate(text){
+           // 继续检查队列
+           setTimeout(playNextAudio, 50);
+       };
+
+       // 开始播放循环
+       playNextAudio();
+   }
+
+   // 将文本转换为语音
+   async convertTextToSpeech(text) {
+       try {
+           // 移除括号内容和星号包裹的内容用于TTS
+           const textForTTS = text
+               .replace(/<[^>]+>/g, '')     // 不移除情绪标签
+               .replace(/（.*?）|\(.*?\)/g, '')  // 移除括号内容
+               .replace(/\*.*?\*/g, '');         // 移除星号包裹内容
+
+           const response = await fetch(this.ttsUrl, {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({
+                   text: textForTTS,
+                   text_language: this.language  // 使用配置中的语言
+               })
+           });
+
+           if (!response.ok) {
+               throw new Error('TTS请求失败: ' + response.status);
+           }
+
+           return await response.blob();
+       } catch (error) {
+           console.error('TTS转换错误:', error);
+           return null;
+       }
+   }
+
+     async translate(text){
         // 翻译文本
         if (this.config.translator.enabled){
             // LLM配置
@@ -193,95 +193,91 @@ class EnhancedTextProcessor {
             }
         return text
     }
-    // 播放单个音频片段，同时实现文本动画同步和情绪动作同步
-    async playAudioWithTextSync(audioBlob) {
-        if (!audioBlob) return;
-        
-        await this.initAudioContext();
-        return new Promise(async (resolve) => {
-            if (this.shouldStop) {
-                resolve();
-                return;
-            }
-            
-            this.isPlaying = true;
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            this.currentAudio = audio;
-            
-            // 触发开始回调
-            if (this.onStartCallback) {
-                this.onStartCallback();
-            }
-            
-            // 设置音频分析
-            const source = this.audioContext.createMediaElementSource(audio);
-            source.connect(this.analyser);
-            this.analyser.connect(this.audioContext.destination);
-            
-            // 预处理当前段落的文本，提取情绪标记
-            let segmentText = this.currentSegmentText;
+   // 播放单个音频片段，同时实现文本动画同步和情绪动作同步
+   async playAudioWithTextSync(audioBlob) {
+       if (!audioBlob) return;
 
-            // process.stdout.write(segmentText);
-            let emotionMarkers = [];
-            
-            // 如果存在情绪映射器，处理情绪标签
-            if (this.emotionMapper) {
-                // 使用情绪映射器预处理文本，获取情绪标记
-                const processedInfo = this.emotionMapper.prepareTextForTTS(segmentText);
-                segmentText = processedInfo.text; // 更新为去除情绪标签的纯文本
-                // segmentText = await this.translate(processedInfo.text)
-                emotionMarkers = processedInfo.emotionMarkers; // 保存情绪标记
-                // process.stdout.write(emotionMarkers);
-                
-                // 保存情绪标记用于后续动作触发
-                this.currentEmotionMarkers = [...emotionMarkers];
-                
-                console.log(`段落文本: "${segmentText}"`);
-                console.log(`情绪标记: ${JSON.stringify(emotionMarkers)}`);
-            }
-            
-            const segmentLength = segmentText.length;
-            let charDisplayIndex = 0;
-            
-            // 动态显示文本的计时器
-            let textAnimInterval = null;
-            
-            // 更新AI的嘴巴动作
-            const updateMouth = () => {
-                if (this.shouldStop || !this.currentAudio) return;
-                
-                this.analyser.getByteFrequencyData(this.dataArray);
-                const sampleCount = this.dataArray.length / 2;
-                let sum = 0;
-                for (let i = 0; i < sampleCount; i++) {
-                    sum += this.dataArray[i];
-                }
-                const average = sum / sampleCount;
-                
-                // 使用平方根函数使动画更自然
-                const mouthOpenValue = Math.pow((average / 256), 0.8) * 1;
-                
-                if (this.onAudioDataCallback) {
-                    this.onAudioDataCallback(mouthOpenValue);
-                }
-                
-                // 持续更新
+       await this.initAudioContext();
+        return new Promise(async (resolve) => {
+           if (this.shouldStop) {
+               resolve();
+               return;
+           }
+
+           this.isPlaying = true;
+           const audioUrl = URL.createObjectURL(audioBlob);
+           const audio = new Audio(audioUrl);
+           this.currentAudio = audio;
+
+           // 触发开始回调
+           if (this.onStartCallback) {
+               this.onStartCallback();
+           }
+
+           // 设置音频分析
+           const source = this.audioContext.createMediaElementSource(audio);
+           source.connect(this.analyser);
+           this.analyser.connect(this.audioContext.destination);
+
+           // 预处理当前段落的文本，提取情绪标记
+           let segmentText = this.currentSegmentText;
+           let emotionMarkers = [];
+
+           // 如果存在情绪映射器，处理情绪标签
+           if (this.emotionMapper) {
+               // 使用情绪映射器预处理文本，获取情绪标记
+               const processedInfo = this.emotionMapper.prepareTextForTTS(segmentText);
+               segmentText = processedInfo.text; // 更新为去除情绪标签的纯文本
+               emotionMarkers = processedInfo.emotionMarkers; // 保存情绪标记
+
+               // 保存情绪标记用于后续动作触发
+               this.currentEmotionMarkers = [...emotionMarkers];
+
+               console.log(`段落文本: "${segmentText}"`);
+               console.log(`情绪标记: ${JSON.stringify(emotionMarkers)}`);
+           }
+
+           const segmentLength = segmentText.length;
+           let charDisplayIndex = 0;
+
+           // 动态显示文本的计时器
+           let textAnimInterval = null;
+
+           // 更新AI的嘴巴动作
+           const updateMouth = () => {
+               if (this.shouldStop || !this.currentAudio) return;
+
+               this.analyser.getByteFrequencyData(this.dataArray);
+               const sampleCount = this.dataArray.length / 2;
+               let sum = 0;
+               for (let i = 0; i < sampleCount; i++) {
+                   sum += this.dataArray[i];
+               }
+               const average = sum / sampleCount;
+
+               // 使用平方根函数使动画更自然
+               const mouthOpenValue = Math.pow((average / 256), 0.8) * 1;
+
+               if (this.onAudioDataCallback) {
+                   this.onAudioDataCallback(mouthOpenValue);
+               }
+
+               // 持续更新
                if (this.currentAudio && !this.shouldStop) {
                    this._renderFrameId = requestAnimationFrame(updateMouth);
                }
-            };
+           };
 
-            // 开始文本动画
-            const startTextAnimation = () => {
-                // 计算每个字符显示的间隔时间（根据音频长度和文本长度）
-                const audioDuration = audio.duration * 1000; // 毫秒
-                let charInterval = audioDuration / segmentLength;
-                
-                // 设置最小和最大字符间隔，以确保动画自然
-                charInterval = Math.max(30, Math.min(200, charInterval));
-                
-                textAnimInterval = setInterval(() => {
+           // 开始文本动画
+           const startTextAnimation = () => {
+               // 计算每个字符显示的间隔时间（根据音频长度和文本长度）
+               const audioDuration = audio.duration * 1000; // 毫秒
+               let charInterval = audioDuration / segmentLength;
+
+               // 设置最小和最大字符间隔，以确保动画自然
+               charInterval = Math.max(30, Math.min(200, charInterval));
+
+               textAnimInterval = setInterval(() => {
                    if (this.shouldStop) {
                        if (textAnimInterval) {
                            clearInterval(textAnimInterval);
@@ -290,216 +286,213 @@ class EnhancedTextProcessor {
                        return;
                    }
 
-                    if (charDisplayIndex < segmentLength) {
-                        // 逐步增加显示的文本
-                        charDisplayIndex++;
-                        
-                        // 根据当前显示位置触发情绪动作
-                        if (this.emotionMapper && this.currentEmotionMarkers.length > 0) {
-                            this.emotionMapper.triggerEmotionByTextPosition(
-                                charDisplayIndex, 
-                                segmentLength, 
-                                this.currentEmotionMarkers
-                            );
-                        }
-                        
-                        // 修改: 完整显示之前所有的文本 + 当前段落的动画部分
-                        const currentDisplay = this.displayedText + segmentText.substring(0, charDisplayIndex);
-                        
-                        // 更新字幕显示
-                        if (typeof showSubtitle === 'function') {
-                            // showSubtitle(`Fake Neuro: ${currentDisplay}`);
-                            showSubtitle(`Seraphim: ${currentDisplay}`);
-                            // 确保滚动到底部
-                            document.getElementById('subtitle-container').scrollTop = 
-                                document.getElementById('subtitle-container').scrollHeight;
-                        }
-                    }
-                }, charInterval);
+                   if (charDisplayIndex < segmentLength) {
+                       // 逐步增加显示的文本
+                       charDisplayIndex++;
 
-                // 保存计时器引用以便在中断时清除
+                       // 根据当前显示位置触发情绪动作
+                       if (this.emotionMapper && this.currentEmotionMarkers.length > 0) {
+                           this.emotionMapper.triggerEmotionByTextPosition(
+                               charDisplayIndex,
+                               segmentLength,
+                               this.currentEmotionMarkers
+                           );
+                       }
+
+                       // 修改: 完整显示之前所有的文本 + 当前段落的动画部分
+                       const currentDisplay = this.displayedText + segmentText.substring(0, charDisplayIndex);
+
+                       // 更新字幕显示
+                       if (typeof showSubtitle === 'function') {
+                           showSubtitle(`Seraphim: ${currentDisplay}`);
+                           // 确保滚动到底部
+                           document.getElementById('subtitle-container').scrollTop =
+                               document.getElementById('subtitle-container').scrollHeight;
+                       }
+                   }
+               }, charInterval);
+
+               // 保存计时器引用以便在中断时清除
                this._textAnimInterval = textAnimInterval;
-            };
-            
-            audio.oncanplaythrough = () => {
-                startTextAnimation();
-            };
-            
-            audio.onplay = () => {
-                updateMouth();
-            };
-            
-            audio.onended = () => {
-                if (this.onAudioDataCallback) {
-                    this.onAudioDataCallback(0); // 关闭嘴巴
-                }
-                
-                // 清除文本动画计时器
-                if (textAnimInterval) {
-                    clearInterval(textAnimInterval);
-                    textAnimInterval = null;
-                    this._textAnimInterval = null;
-                }
+           };
 
-                // 取消渲染帧
-                if (this._renderFrameId) {
-                    cancelAnimationFrame(this._renderFrameId);
-                    this._renderFrameId = null;
-                }
-                
-                // 音频播放完毕后，将当前段落全部显示
-                this.displayedText += segmentText;
-                if (typeof showSubtitle === 'function') {
-                    // showSubtitle(`Fake Neuro: ${this.displayedText}`);
-                    showSubtitle(`Seraphim: ${this.displayedText}`);
-                }
-                
-                URL.revokeObjectURL(audioUrl);
-                this.currentAudio = null;
-                this.isPlaying = false;
-                
-                // 清空当前段落的情绪标记
-                this.currentEmotionMarkers = [];
-                
-                // 检查是否所有文本都已处理和播放完成
-                if (this.audioDataQueue.length === 0 && 
-                    this.textSegmentQueue.length === 0 && 
-                    !this.isProcessing &&
-                    this.pendingSegment.trim() === '') {
-                    
-                    // 修复：播放完成后，设置一个3秒的延迟然后隐藏字幕
-                    setTimeout(() => {
-                        if (typeof hideSubtitle === 'function') {
-                            hideSubtitle();
-                        }
-                    }, 1000);
-                    
-                    if (this.onEndCallback) {
-                        this.onEndCallback();
-                    }
-                }
-                
-                resolve();
-            };
-            
-            audio.onerror = (e) => {
-                console.error('音频播放错误:', e);
-                
-                // 清除文本动画计时器
-                if (textAnimInterval) {
-                    clearInterval(textAnimInterval);
-                    textAnimInterval = null;
-                    this._textAnimInterval = null;
-                }
+           audio.oncanplaythrough = () => {
+               startTextAnimation();
+           };
 
-                // 取消渲染帧
-                if (this._renderFrameId) {
-                    cancelAnimationFrame(this._renderFrameId);
-                    this._renderFrameId = null;
-                }
-                
-                URL.revokeObjectURL(audioUrl);
-                this.currentAudio = null;
-                this.isPlaying = false;
-                resolve();
-            };
-            
-            // 播放
-            audio.play().catch(error => {
-                console.error('播放失败:', error);
-                
-                // 清除文本动画计时器
-                if (textAnimInterval) {
-                    clearInterval(textAnimInterval);
-                    textAnimInterval = null;
-                    this._textAnimInterval = null;
-                }
+           audio.onplay = () => {
+               updateMouth();
+           };
 
-                // 取消渲染帧
-                if (this._renderFrameId) {
-                    cancelAnimationFrame(this._renderFrameId);
-                    this._renderFrameId = null;
-                }
-                
-                this.currentAudio = null;
-                this.isPlaying = false;
-                resolve();
-            });
-        });
-    }
+           audio.onended = () => {
+               if (this.onAudioDataCallback) {
+                   this.onAudioDataCallback(0); // 关闭嘴巴
+               }
 
-    // 添加流式文本，实时进行分段处理
-    addStreamingText(text) {
-        if (this.shouldStop) return;
-        
-        // 更新LLM的完整响应文本
-        this.llmFullResponse += text;
-        
-        // 将新文本追加到待处理的段落中
-        this.pendingSegment += text;
-        
-        // 逐字符处理，只在标点符号处分段
-        let processedSegment = '';
-        for (let i = 0; i < this.pendingSegment.length; i++) {
-            const char = this.pendingSegment[i];
-            processedSegment += char;
-            
-            // 遇到标点符号时分段
-            if (this.punctuations.includes(char) && processedSegment.trim()) {
-                this.textSegmentQueue.push(processedSegment);
-                processedSegment = '';
-            }
-        }
-        
-        // 保存未处理的文本段
-        this.pendingSegment = processedSegment;
-    }
-    
-    // 完成流式文本处理，确保所有文本都被处理
-    finalizeStreamingText() {
-        // 添加消息到聊天框
-        const chatMessages = document.getElementById('chat-messages');
-        if (chatMessages) {
-            const messageElement = document.createElement('div');
-            // messageElement.innerHTML = `<strong>Fake Neuro:</strong> ${this.llmFullResponse}`;
-            messageElement.innerHTML = `<strong>Seraphim:</strong> ${this.llmFullResponse}`;
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
+               // 清除文本动画计时器
+               if (textAnimInterval) {
+                   clearInterval(textAnimInterval);
+                   textAnimInterval = null;
+                   this._textAnimInterval = null;
+               }
 
-        // 确保任何剩余的文本都被处理
-        if (this.pendingSegment.trim()) {
-            this.textSegmentQueue.push(this.pendingSegment);
-            this.pendingSegment = '';
-        }
-    }
+               // 取消渲染帧
+               if (this._renderFrameId) {
+                   cancelAnimationFrame(this._renderFrameId);
+                   this._renderFrameId = null;
+               }
 
-    // 处理完整文本（兼容旧的调用方式）
-    async processTextToSpeech(text) {
-        if (!text.trim()) return;
-        
-        this.reset();
-        this.llmFullResponse = text;
-        
-        // 不再直接显示文本，而是等待音频播放时显示
-        
-        // 分段处理文本
-        let currentSegment = '';
-        for (let char of text) {
-            currentSegment += char;
-            if (this.punctuations.includes(char) && currentSegment.trim()) {
-                this.textSegmentQueue.push(currentSegment);
-                currentSegment = '';
-            }
-        }
-        
-        // 处理末尾没有标点的文本
-        if (currentSegment.trim()) {
-            this.textSegmentQueue.push(currentSegment);
-        }
-    }
+               // 音频播放完毕后，将当前段落全部显示
+               this.displayedText += segmentText;
+               if (typeof showSubtitle === 'function') {
+                   showSubtitle(`Seraphim: ${this.displayedText}`);
+               }
 
-    // 重置所有状态
+               URL.revokeObjectURL(audioUrl);
+               this.currentAudio = null;
+               this.isPlaying = false;
+
+               // 清空当前段落的情绪标记
+               this.currentEmotionMarkers = [];
+
+               // 检查是否所有文本都已处理和播放完成
+               if (this.audioDataQueue.length === 0 &&
+                   this.textSegmentQueue.length === 0 &&
+                   !this.isProcessing &&
+                   this.pendingSegment.trim() === '') {
+
+                   // 修复：播放完成后，设置一个3秒的延迟然后隐藏字幕
+                   setTimeout(() => {
+                       if (typeof hideSubtitle === 'function') {
+                           hideSubtitle();
+                       }
+                   }, 1000);
+
+                   if (this.onEndCallback) {
+                       this.onEndCallback();
+                   }
+               }
+
+               resolve();
+           };
+
+           audio.onerror = (e) => {
+               console.error('音频播放错误:', e);
+
+               // 清除文本动画计时器
+               if (textAnimInterval) {
+                   clearInterval(textAnimInterval);
+                   textAnimInterval = null;
+                   this._textAnimInterval = null;
+               }
+
+               // 取消渲染帧
+               if (this._renderFrameId) {
+                   cancelAnimationFrame(this._renderFrameId);
+                   this._renderFrameId = null;
+               }
+
+               URL.revokeObjectURL(audioUrl);
+               this.currentAudio = null;
+               this.isPlaying = false;
+               resolve();
+           };
+
+           // 播放
+           audio.play().catch(error => {
+               console.error('播放失败:', error);
+
+               // 清除文本动画计时器
+               if (textAnimInterval) {
+                   clearInterval(textAnimInterval);
+                   textAnimInterval = null;
+                   this._textAnimInterval = null;
+               }
+
+               // 取消渲染帧
+               if (this._renderFrameId) {
+                   cancelAnimationFrame(this._renderFrameId);
+                   this._renderFrameId = null;
+               }
+
+               this.currentAudio = null;
+               this.isPlaying = false;
+               resolve();
+           });
+       });
+   }
+
+   // 添加流式文本，实时进行分段处理
+   addStreamingText(text) {
+       if (this.shouldStop) return;
+
+       // 更新LLM的完整响应文本
+       this.llmFullResponse += text;
+
+       // 将新文本追加到待处理的段落中
+       this.pendingSegment += text;
+
+       // 逐字符处理，只在标点符号处分段
+       let processedSegment = '';
+       for (let i = 0; i < this.pendingSegment.length; i++) {
+           const char = this.pendingSegment[i];
+           processedSegment += char;
+
+           // 遇到标点符号时分段
+           if (this.punctuations.includes(char) && processedSegment.trim()) {
+               this.textSegmentQueue.push(processedSegment);
+               processedSegment = '';
+           }
+       }
+
+       // 保存未处理的文本段
+       this.pendingSegment = processedSegment;
+   }
+
+   // 完成流式文本处理，确保所有文本都被处理
+   finalizeStreamingText() {
+       // 添加消息到聊天框
+       const chatMessages = document.getElementById('chat-messages');
+       if (chatMessages) {
+           const messageElement = document.createElement('div');
+           messageElement.innerHTML = `<strong>Seraphim:</strong> ${this.llmFullResponse}`;
+           chatMessages.appendChild(messageElement);
+           chatMessages.scrollTop = chatMessages.scrollHeight;
+       }
+
+       // 确保任何剩余的文本都被处理
+       if (this.pendingSegment.trim()) {
+           this.textSegmentQueue.push(this.pendingSegment);
+           this.pendingSegment = '';
+       }
+   }
+
+   // 处理完整文本（兼容旧的调用方式）
+   async processTextToSpeech(text) {
+       if (!text.trim()) return;
+
+       this.reset();
+       this.llmFullResponse = text;
+
+       // 不再直接显示文本，而是等待音频播放时显示
+
+       // 分段处理文本
+       let currentSegment = '';
+       for (let char of text) {
+           currentSegment += char;
+           if (this.punctuations.includes(char) && currentSegment.trim()) {
+               this.textSegmentQueue.push(currentSegment);
+               currentSegment = '';
+           }
+       }
+
+       // 处理末尾没有标点的文本
+       if (currentSegment.trim()) {
+           this.textSegmentQueue.push(currentSegment);
+       }
+   }
+
+   // 重置所有状态
    reset() {
        this.llmFullResponse = '';
        this.displayedText = '';

@@ -2,7 +2,7 @@
 const axios = require('axios');
 
 // Tavily API配置
-const TAVILY_API_KEY = "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";
+const TAVILY_API_KEY = "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";
 
 // 工具定义
 const SEARCH_TOOL = {

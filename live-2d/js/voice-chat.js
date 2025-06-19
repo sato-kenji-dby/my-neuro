@@ -13,7 +13,7 @@ class VoiceChatInterface {
         this.API_KEY = this.config.llm.api_key;
         this.API_URL = this.config.llm.api_url;
         this.MODEL = this.config.llm.model;
-        this.provider = this.config.llm.provider;
+                this.provider = this.config.llm.provider;
         if (this.provider === 'google_aistudio')
             this.ai = new GoogleGenAI({ apiKey: this.API_KEY });
             this.chat = this.ai.chats.create({
@@ -39,14 +39,15 @@ class VoiceChatInterface {
         this.screenshotEnabled = this.config.vision.enabled;
         this.screenshotPath = this.config.vision.screenshot_path;
         this.visionCheckUrl = this.config.vision.check_url;
-        
+        this.autoScreenshot = this.config.vision.auto_screenshot || false; // 新增：默认截图功能
+
         // 记忆文件路径
         this.memoryFilePath = this.config.memory.file_path;
         this.memoryCheckUrl = this.config.memory.check_url;
-        
+
         // 模型引用
         this.model = null;
-        
+
         // 情绪动作映射器引用
         this.emotionMapper = null;
 
@@ -268,6 +269,13 @@ ${memoryContent}`;
     async shouldTakeScreenshot(text) {
         if (!this.screenshotEnabled) return false;
 
+        // 如果开启了自动截图，直接返回 true
+        if (this.autoScreenshot) {
+            console.log('自动截图模式已开启，将为本次对话截图');
+            return true;
+        }
+
+        // 否则使用原有的智能判断逻辑
         try {
             const url = `${this.visionCheckUrl}?text=${encodeURIComponent(text)}`;
             const response = await fetch(url, {
@@ -322,6 +330,7 @@ ${memoryContent}`;
                 messagesForAPI = JSON.parse(JSON.stringify(this.messages));
             }
 
+            
             // 调试消息数组
             console.log(`发送给LLM的消息数: ${messagesForAPI.length}`);
 
@@ -467,6 +476,10 @@ ${memoryContent}`;
                         // 如果截图失败，使用纯文本消息，已经设置好了
                     }
                 }
+
+            // 调试消息数组
+            console.log(`发送给LLM的消息数: ${messagesForAPI.length}`);
+
             // 发送请求到LLM
             const response = await fetch(`${this.API_URL}/chat/completions`, {
                 method: 'POST',
@@ -480,87 +493,84 @@ ${memoryContent}`;
                     stream: true
                 })
             });
-                if (!response.ok) {
-                    // 根据HTTP状态码提供具体错误信息
-                    let errorMessage = "";
-                    switch(response.status) {
-                        case 401:
-                            errorMessage = "API密钥验证失败，请检查你的API密钥";
-                            break;
-                        case 403:
-                            errorMessage = "API访问被禁止，你的账号可能被限制";
-                            break;
-                        case 404:
-                            errorMessage = "API接口未找到，请检查API地址";
-                            break;
-                        case 429:
-                            errorMessage = "请求过于频繁，超出API限制";
-                            break;
-                        case 500:
-                        case 502:
-                        case 503:
-                        case 504:
-                            errorMessage = "服务器错误，AI服务当前不可用";
-                            break;
-                        default:
-                            errorMessage = `API错误: ${response.status} ${response.statusText}`;
-                    }
-                    throw new Error(errorMessage);
-                }
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
 
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) {
-                        // 确保所有待处理文本都被发送到TTS
-                        this.ttsProcessor.finalizeStreamingText();
+            if (!response.ok) {
+                // 根据HTTP状态码提供具体错误信息
+                let errorMessage = "";
+                switch(response.status) {
+                    case 401:
+                        errorMessage = "API密钥验证失败，请检查你的API密钥";
                         break;
-                    }
+                    case 403:
+                        errorMessage = "API访问被禁止，你的账号可能被限制";
+                        break;
+                    case 404:
+                        errorMessage = "API接口未找到，请检查API地址";
+                        break;
+                    case 429:
+                        errorMessage = "请求过于频繁，超出API限制";
+                        break;
+                    case 500:
+                    case 502:
+                    case 503:
+                    case 504:
+                        errorMessage = "服务器错误，AI服务当前不可用";
+                        break;
+                    default:
+                        errorMessage = `API错误: ${response.status} ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
+            }
 
-                    const text = decoder.decode(value);
-                    const lines = text.split('\n');
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
 
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            if (line.includes('[DONE]')) continue;
-
-                            try {
-                                const data = JSON.parse(line.slice(6));
-                                if (data.choices[0].delta.content) {
-                                    const newContent = data.choices[0].delta.content;
-                                    fullResponse += newContent;
-
-                                    // 将新的文本片段传递给TTS处理器进行实时处理
-                                    this.ttsProcessor.addStreamingText(newContent);
-                                }
-                            } catch (e) {
-                                console.error('解析响应错误:', e);
-                            }
-                        }
-                    }
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    // 确保所有待处理文本都被发送到TTS
+                    this.ttsProcessor.finalizeStreamingText();
+                    break;
                 }
 
-                if (fullResponse) {
-                    // 保存原始回复（包含情绪标签）到上下文
-                    this.messages.push({'role': 'assistant', 'content': fullResponse});
+                const text = decoder.decode(value);
+                const lines = text.split('\n');
 
-                    // 在接收响应后再次进行消息裁剪
-                    if (this.enableContextLimit) {
-                        this.trimMessages();
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        if (line.includes('[DONE]')) continue;
+
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.choices[0].delta.content) {
+                                const newContent = data.choices[0].delta.content;
+                                fullResponse += newContent;
+
+                                // 将新的文本片段传递给TTS处理器进行实时处理
+                                this.ttsProcessor.addStreamingText(newContent);
+                            }
+                        } catch (e) {
+                            console.error('解析响应错误:', e);
+                        }
                     }
                 }
             }
 
-            
+            if (fullResponse) {
+                // 保存原始回复（包含情绪标签）到上下文
+                this.messages.push({'role': 'assistant', 'content': fullResponse});
 
-            
+                // 在接收响应后再次进行消息裁剪
+                if (this.enableContextLimit) {
+                    this.trimMessages();
+                }
+            }
+            }
         } catch (error) {
             console.error("LLM处理错误:", error);
-            process.stdout.write(error);
 
             // 检查错误类型，显示具体错误信息
-            let errorMessage = "抱歉，出现了一个错误 voice";
+            let errorMessage = "抱歉，出现了一个错误";
 
             if (error.message.includes("API密钥验证失败")) {
                 errorMessage = "API密钥错误，请检查配置";
@@ -578,8 +588,7 @@ ${memoryContent}`;
                 errorMessage = "解析API响应出错，请重试";
             }
 
-            // this.showSubtitle(errorMessage, 3000);
-            this.showSubtitle(error.message, 3000);
+            this.showSubtitle(errorMessage, 3000);
             // 出错时也要解锁ASR
             this.asrProcessor.resumeRecording();
             // 出错时也要隐藏字幕
