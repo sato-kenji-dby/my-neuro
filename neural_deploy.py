@@ -221,12 +221,12 @@ def download_live2d_model():
     """下载并解压Live 2D模型"""
     print("\n========== 下载Live 2D模型 ==========")
     # GitHub文件下载链接
-    url = "https://github.com/morettt/my-neuro/releases/download/v4.4.1/live-2d.zip"
+    url = "https://github.com/morettt/my-neuro/releases/download/v4.4.3/live-2d.zip"
     # 获取文件名
     file_name = url.split('/')[-1]
     
     # 创建目标文件夹
-    target_folder = "live 2d"
+    target_folder = "live-2d"
     
     # 下载文件
     downloaded_file = download_file(url, file_name)

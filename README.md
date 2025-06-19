@@ -68,6 +68,10 @@ English Documentation: [English Version](./README_English.md)
 
 确保你电脑里安装了anaconda 如果还没有安装，可以去这里安装：https://www.anaconda.com/download/success
 
+anaconda的安装流程可以参考这个视频，讲的很详细：https://www.bilibili.com/video/BV1ns4y1T7AP
+
+已经有了anaconda环境后，就可以开始动手了！
+
 先在项目路径下运行这个指令：
 
 ```bash
@@ -152,7 +156,7 @@ python tts_api.py -p 5000 -d cuda -s tts-model/merge.pth -dr tts-model/neuro/01.
 
 8.等待ASR和TTS都输出IP后，点击此链接下载zip文件：
 
-https://github.com/morettt/my-neuro/releases/download/v4.4.1/live-2d.zip
+https://github.com/morettt/my-neuro/releases/download/v4.4.3/live-2d.zip
 
 
 下载后解压是这样的，双击打开这个 肥牛.exe 文件
