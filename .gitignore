@@ -3,6 +3,7 @@ live-2d/fonts
 config.json
 config1.json
 config2.json
+config_original.json
 text_database.txt
 对话记录.txt
 prompt.txt
