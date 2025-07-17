@@ -12,6 +12,7 @@ export default defineConfig({
       $stores: path.resolve('./src/stores'),
       $types: path.resolve('./src/types'),
       $ui: path.resolve('./src/ui'),
+      $js: path.resolve('./src/js'),
     },
   },
 });

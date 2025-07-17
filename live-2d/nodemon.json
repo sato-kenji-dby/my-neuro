@@ -1,0 +1,6 @@
+{
+  "watch": ["dist-electron/"],
+  "exec": "electron electron.cjs",
+  "ext": "cjs",
+  "delay": "1000"
+}

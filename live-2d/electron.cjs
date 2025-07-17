@@ -61,22 +61,22 @@ function createWindow() {
   });
 }
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      bypassCSP: true,
+      allowServiceWorkers: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
+
 app.on('ready', async () => {
   console.log('[Main Process] App is ready.');
-
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: 'app',
-      privileges: {
-        standard: true,
-        secure: true,
-        bypassCSP: true,
-        allowServiceWorkers: true,
-        supportFetchAPI: true,
-        corsEnabled: true,
-      },
-    },
-  ]);
 
   protocol.registerFileProtocol('app', (request, callback) => {
     // Use URL parsing to correctly handle paths like '/index.html' or '/_app/...'

@@ -4,20 +4,28 @@ import * as os from 'os'; // 转换为 ESM 风格
 
 class ConfigLoader {
     config: any; // 声明 config 属性
-    configPath: string; // 声明 configPath 属性
-    defaultConfigPath: string; // 声明 defaultConfigPath 属性
+    configPath: string | null = null; // 声明 configPath 属性
+    defaultConfigPath: string | null = null; // 声明 defaultConfigPath 属性
 
     constructor() {
         this.config = null;
-        this.configPath = path.join(__dirname, '..', 'config.json');
-        this.defaultConfigPath = path.join(__dirname, '..', 'default_config.json');
+    }
+
+    private ensurePaths() {
+        if (!this.configPath) {
+            const { app } = require('electron');
+            const appPath = app.getAppPath();
+            this.configPath = path.join(appPath, 'config.json');
+            this.defaultConfigPath = path.join(appPath, 'default_config.json');
+        }
     }
 
     // 修改后的加载配置文件方法，如果格式不对就直接报错
     load(): any { // 添加返回类型
+        this.ensurePaths();
         try {
             // 直接读取配置文件
-            const configData = fs.readFileSync(this.configPath, 'utf8');
+            const configData = fs.readFileSync(this.configPath!, 'utf8');
             
             try {
                 // 尝试解析 JSON
@@ -42,12 +50,16 @@ class ConfigLoader {
     // 处理特殊路径，比如将 ~ 展开为用户主目录
     processSpecialPaths() {
         if (this.config.vision && this.config.vision.screenshot_path) {
+            if (!this.config.vision.screenshot) {
+                this.config.vision.screenshot = {};
+            }
             this.config.vision.screenshot.path = this.config.vision.screenshot_path.replace(/^~/, os.homedir());
         }
     }
 
     // 保存配置
     save(config: any = null): boolean { // 添加 config 参数类型和返回类型
+        this.ensurePaths();
         try {
             const configToSave = config || this.config;
             if (!configToSave) {
@@ -55,14 +67,14 @@ class ConfigLoader {
             }
             
             // 创建配置文件备份
-            if (fs.existsSync(this.configPath)) {
-                const backupPath = `${this.configPath}.bak`;
-                fs.copyFileSync(this.configPath, backupPath);
+            if (fs.existsSync(this.configPath!)) {
+                const backupPath = `${this.configPath!}.bak`;
+                fs.copyFileSync(this.configPath!, backupPath);
                 console.log(`已创建配置文件备份: ${backupPath}`);
             }
             
             // 保存配置
-            fs.writeFileSync(this.configPath, JSON.stringify(configToSave, null, 2), 'utf8');
+            fs.writeFileSync(this.configPath!, JSON.stringify(configToSave, null, 2), 'utf8');
             console.log('配置已保存');
             return true;
         } catch (error) {
