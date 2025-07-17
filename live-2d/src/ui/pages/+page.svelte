@@ -122,6 +122,9 @@
             height: window.innerHeight * 2
         });
 
+        // 显式禁用默认的事件行为，有时可以避免冲突
+        app.renderer.plugins.interaction.autoPreventDefault = false;
+
         app.stage.position.set(window.innerWidth / 2, window.innerHeight / 2);
         app.stage.pivot.set(window.innerWidth / 2, window.innerHeight / 2);
 
@@ -129,6 +132,11 @@
         try {
             model = await Live2DModel.from("/2D/Hiyori.model3.json"); // 注意路径
             app.stage.addChild(model as unknown as DisplayObject);
+
+            // 确保舞台可交互，并设置交互区域
+            app.stage.interactive = true;
+            app.stage.hitArea = app.screen;
+
         } catch (error: unknown) { // 明确指定 error 类型为 unknown
             ipcRenderer.send('log-to-main', { level: 'error', message: `加载Live2D模型错误: ${(error as Error).message}` });
             alert(`加载Live2D模型错误: ${(error as Error).message}`);
@@ -179,26 +187,6 @@
         // // 鼠标事件监听
         // document.addEventListener('mousemove', updateMouseIgnore);
 
-        // 聊天框事件监听
-        const textChatContainer = document.getElementById('text-chat-container');
-        if (textChatContainer) {
-            textChatContainer.addEventListener('mouseenter', () => {
-                ipcRenderer.send('set-ignore-mouse-events', { ignore: false, options: { forward: false } });
-            });
-            textChatContainer.addEventListener('mouseleave', () => {
-                ipcRenderer.send('set-ignore-mouse-events', { ignore: true, options: { forward: true } });
-            });
-        }
-        const chatInput = document.getElementById('chat-input');
-        if (chatInput) {
-            chatInput.addEventListener('focus', () => {
-                ipcRenderer.send('set-ignore-mouse-events', { ignore: false, options: { forward: false } });
-            });
-            chatInput.addEventListener('blur', () => {
-                ipcRenderer.send('set-ignore-mouse-events', { ignore: true, options: { forward: true } });
-            });
-        }
-
         // 切换文本框显示/隐藏的快捷键
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Alt') {
@@ -213,10 +201,21 @@
     onDestroy(() => {
         if (browser) {
             if (app) {
+                // 在销毁应用之前，显式从舞台中移除模型
+                if (model) {
+                    app.stage.removeChild(model);
+                }
+                // 尝试显式销毁交互插件
+                if (app.renderer && app.renderer.plugins && app.renderer.plugins.interaction) {
+                    (app.renderer.plugins.interaction as any).destroy(); // 类型断言
+                }
                 app.destroy();
             }
             if (asrProcessor) {
                 asrProcessor.stopRecording();
+            }
+            if (modelController) {
+                modelController.destroy(); // 调用 ModelInteractionController 的销毁方法
             }
             // document.removeEventListener('mousemove', updateMouseIgnore);
             

@@ -43,56 +43,53 @@ class ModelInteractionController {
         this.interactionY = (this.model as any).y + ((this.model as any).height - this.interactionHeight) / 2; // 类型断言
     }
 
+    // 鼠标释放事件处理
+    private handleMouseUp = () => {
+        this.isDragging = false;
+    };
+
+    // 鼠标滚轮事件处理（缩放功能）
+    private handleWheel = (e: WheelEvent) => {
+        if (this.model && this.app && (this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 类型断言
+            e.preventDefault();
+
+            const scaleChange = e.deltaY > 0 ? 0.9 : 1.1;
+            const currentScale = (this.model as any).scale.x; // 类型断言
+            const newScale = currentScale * scaleChange;
+
+            const minScale = (this.model as any).scale.x * 0.3; // 类型断言
+            const maxScale = (this.model as any).scale.x * 3.0; // 类型断言
+
+            if (newScale >= minScale && newScale <= maxScale) {
+                (this.model as any).scale.set(newScale); // 类型断言
+
+                const oldWidth = (this.model as any).width / scaleChange; // 类型断言
+                const oldHeight = (this.model as any).height / scaleChange; // 类型断言
+                const deltaWidth = (this.model as any).width - oldWidth; // 类型断言
+                const deltaHeight = (this.model as any).height - oldHeight; // 类型断言
+
+                (this.model as any).x -= deltaWidth / 2; // 类型断言
+                (this.model as any).y -= deltaHeight / 2; // 类型断言
+                this.updateInteractionArea();
+            }
+        }
+    };
+
+    // 窗口大小改变事件处理
+    private handleResize = () => {
+        if (this.app && this.app.renderer) {
+            this.app.renderer.resize(window.innerWidth * 2, window.innerHeight * 2);
+            this.app.stage.position.set(window.innerWidth / 2, window.innerHeight / 2);
+            this.app.stage.pivot.set(window.innerWidth / 2, window.innerHeight / 2);
+            this.updateInteractionArea();
+        }
+    };
+
     // 设置交互性
     setupInteractivity() {
         if (!this.model || !this.app) return; // 确保 model 和 app 都存在
         
         (this.model as any).interactive = true; // 类型断言
-
-        // 覆盖原始的containsPoint方法，自定义交互区域
-        const originalContainsPoint = (this.model as any).containsPoint; // 类型断言
-        (this.model as any).containsPoint = (point: Point): boolean => { // 类型断言
-            
-            const isOverModel = (
-                this.model && // 确保模型已加载
-                (this.model as any).x >= this.interactionX && // 类型断言
-                (this.model as any).x <= this.interactionX + this.interactionWidth && // 类型断言
-                (this.model as any).y >= this.interactionY && // 类型断言
-                (this.model as any).y <= this.interactionY + this.interactionHeight // 类型断言
-            );
-
-            // // 检查是否在聊天框内
-            const chatContainer = document.getElementById('text-chat-container');
-            if (!chatContainer) return isOverModel as boolean; // 确保返回 boolean
-
-            // 获取PIXI应用的view(DOM canvas元素)
-            if (!this.app || !this.app.renderer || !this.app.renderer.view) return isOverModel as boolean; // 确保返回 boolean
-            const pixiView = this.app.renderer.view;
-    
-            // 计算canvas在页面中的位置
-            const canvasRect = pixiView.getBoundingClientRect();
-    
-            // 获取聊天框的DOM位置
-            const chatRect = chatContainer.getBoundingClientRect();
-    
-            // 将DOM坐标转换为PIXI坐标
-            const chatLeftInPixi = (chatRect.left - canvasRect.left) * (pixiView.width / canvasRect.width);
-            const chatRightInPixi = (chatRect.right - canvasRect.left) * (pixiView.width / canvasRect.width);
-            const chatTopInPixi = (chatRect.top - canvasRect.top) * (pixiView.height / canvasRect.height);
-            const chatBottomInPixi = (chatRect.bottom - canvasRect.top) * (pixiView.height / canvasRect.height);
-
-            // const chatRect = chatContainer.getBoundingClientRect();
-            const isOverChat = (
-                point.x >= chatLeftInPixi &&
-                point.x <= chatRightInPixi &&
-                point.y >= chatTopInPixi &&
-                point.y <= chatBottomInPixi
-            );
-
-            
-            return isOverModel || isOverChat;
-        };
-        
 
         // 鼠标按下事件
         (this.model as any).on('mousedown', (e: any) => { // 类型断言
@@ -101,11 +98,7 @@ class ModelInteractionController {
                 this.isDragging = true;
                 this.dragOffset.x = point.x - (this.model as any).x; // 类型断言
                 this.dragOffset.y = point.y - (this.model as any).y; // 类型断言
-                this.ipcRenderer?.send('set-ignore-mouse-events', {
-                    ignore: false
-                });
             }
-            
         });
 
         // 鼠标移动事件
@@ -119,100 +112,13 @@ class ModelInteractionController {
         });
 
         // 全局鼠标释放事件
-        window.addEventListener('mouseup', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                setTimeout(() => {
-                    if (this.model && this.app && !(this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 添加空值检查和类型断言
-                        this.ipcRenderer?.send('set-ignore-mouse-events', {
-                            ignore: true,
-                            options: { forward: true }
-                        });
-                    }
-                }, 100);
-            }
-        });
-
-        const chatContainer = document.getElementById('text-chat-container');
-        if (!chatContainer) return; // 添加空值检查
-
-        // 鼠标按下时开始拖动
-        chatContainer.addEventListener('mousedown', (e) => {
-            // 仅当点击聊天框背景或消息区域时触发拖动（避免误触输入框和按钮）
-            const target = e.target as HTMLElement; // 类型断言
-            if (target === chatContainer || target.id === 'chat-messages') {
-                this.isDraggingChat = true;
-                this.chatDragOffset.x = e.clientX - chatContainer.getBoundingClientRect().left;
-                this.chatDragOffset.y = e.clientY - chatContainer.getBoundingClientRect().top;
-                e.preventDefault(); // 防止文本选中
-                this.ipcRenderer?.send('set-ignore-mouse-events', {
-                    ignore: false
-                });
-                
-            }
-        });
-
-        // 鼠标移动时更新位置
-        document.addEventListener('mousemove', (e) => {
-            if (this.isDraggingChat) {
-                chatContainer.style.left = `${e.clientX - this.chatDragOffset.x}px`;
-                chatContainer.style.top = `${e.clientY - this.chatDragOffset.y}px`;
-            }
-        });
-
-        // 鼠标释放时停止拖动
-        document.addEventListener('mouseup', () => {
-            // this.isDraggingChat = false;
-            if (this.isDraggingChat) {
-                this.isDraggingChat = false;
-                setTimeout(() => {
-                    if (this.model && this.app && !(this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 添加空值检查和类型断言
-                        this.ipcRenderer?.send('set-ignore-mouse-events', {
-                            ignore: true,
-                            options: { forward: true }
-                        });
-                    }
-                }, 100);
-            }
-        });
-
-
-// 拖动结束时，再次检查穿透状态
-// window.addEventListener('mouseup', () => {
-//     if (this.isDraggingChat) {
-//         this.isDraggingChat = false;
-//         this.updateMouseIgnore(); // 确保拖动结束后状态正确
-//     }
-// });
-
-// 鼠标离开事件
-// document.addEventListener('mouseout', () => {
-//     if (!this.isDraggingChat) {
-//         ipcRenderer.send('set-ignore-mouse-events', {
-//             ignore: true,
-//             options: { forward: true }
-//         });
-//     }
-// });
+        window.addEventListener('mouseup', this.handleMouseUp);
 
         // 鼠标悬停事件
-        (this.model as any).on('mouseover', () => { // 类型断言
-            if (this.model && this.app && (this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 类型断言
-                this.ipcRenderer?.send('set-ignore-mouse-events', {
-                    ignore: false
-                });
-            }
-        });
+        (this.model as any).on('mouseover', () => { /* 无需操作 */ });
 
         // 鼠标离开事件
-        (this.model as any).on('mouseout', () => { // 类型断言
-            if (!this.isDragging) {
-                this.ipcRenderer?.send('set-ignore-mouse-events', {
-                    ignore: true,
-                    options: { forward: true }
-                });
-            }
-        });
+        (this.model as any).on('mouseout', () => { /* 无需操作 */ });
 
         // 鼠标点击事件
         (this.model as any).on('click', () => { // 类型断言
@@ -223,41 +129,10 @@ class ModelInteractionController {
         });
 
         // 鼠标滚轮事件（缩放功能）
-        window.addEventListener('wheel', (e) => {
-            if (this.model && this.app && (this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 类型断言
-                e.preventDefault();
-
-                const scaleChange = e.deltaY > 0 ? 0.9 : 1.1;
-                const currentScale = (this.model as any).scale.x; // 类型断言
-                const newScale = currentScale * scaleChange;
-
-                const minScale = (this.model as any).scale.x * 0.3; // 类型断言
-                const maxScale = (this.model as any).scale.x * 3.0; // 类型断言
-
-                if (newScale >= minScale && newScale <= maxScale) {
-                    (this.model as any).scale.set(newScale); // 类型断言
-
-                    const oldWidth = (this.model as any).width / scaleChange; // 类型断言
-                    const oldHeight = (this.model as any).height / scaleChange; // 类型断言
-                    const deltaWidth = (this.model as any).width - oldWidth; // 类型断言
-                    const deltaHeight = (this.model as any).height - oldHeight; // 类型断言
-
-                    (this.model as any).x -= deltaWidth / 2; // 类型断言
-                    (this.model as any).y -= deltaHeight / 2; // 类型断言
-                    this.updateInteractionArea();
-                }
-            }
-        }, { passive: false });
+        window.addEventListener('wheel', this.handleWheel, { passive: false });
 
         // 窗口大小改变事件
-        window.addEventListener('resize', () => {
-            if (this.app && this.app.renderer) {
-                this.app.renderer.resize(window.innerWidth * 2, window.innerHeight * 2);
-                this.app.stage.position.set(window.innerWidth / 2, window.innerHeight / 2);
-                this.app.stage.pivot.set(window.innerWidth / 2, window.innerHeight / 2);
-                this.updateInteractionArea();
-            }
-        });
+        window.addEventListener('resize', this.handleResize);
     }
 
     // 设置嘴部动画
@@ -274,6 +149,26 @@ class ModelInteractionController {
         } catch (error) {
             console.error('设置嘴型参数失败:', error);
         }
+    }
+
+    // 销毁方法，移除所有事件监听器
+    destroy() {
+        if (this.model) {
+            // 移除 PIXI 模型的事件监听器
+            (this.model as any).off('mousedown');
+            (this.model as any).off('mousemove');
+            (this.model as any).off('mouseover');
+            (this.model as any).off('mouseout');
+            (this.model as any).off('click');
+        }
+        // 移除全局 window 事件监听器
+        window.removeEventListener('mouseup', this.handleMouseUp);
+        window.removeEventListener('wheel', this.handleWheel);
+        window.removeEventListener('resize', this.handleResize);
+        
+        this.model = null;
+        this.app = null;
+        this.ipcRenderer = null;
     }
 
     // 初始化模型位置和大小
