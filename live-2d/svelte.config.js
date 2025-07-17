@@ -18,6 +18,7 @@ const config = {
       $stores: './src/stores',
       $ui: './src/ui',
       $types: './src/types',
+      $js: './js',
     },
     files: {
       routes: 'src/ui/pages',

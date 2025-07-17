@@ -1,6 +1,39 @@
 // ASR（自动语音识别）功能模块
 class ASRProcessor {
-    constructor(vadUrl, asrUrl) {
+    private vadUrl: string;
+    private asrUrl: string;
+    private isProcessingAudio: boolean;
+    private asrLocked: boolean;
+
+    // 音频相关参数
+    private audioContext: AudioContext | null;
+    private mediaStream: MediaStream | null;
+    private ws: WebSocket | null;
+    private SAMPLE_RATE: number;
+    private WINDOW_SIZE: number;
+    private retryCount: number;
+    private MAX_RETRIES: number;
+
+    // 缓冲区设置
+    private audioBuffer: number[];
+    private BUFFER_DURATION: number;
+    private BUFFER_SIZE: number;
+    
+    // 录音相关
+    private isRecording: boolean;
+    private continuousBuffer: number[];
+    private recordingStartIndex: number;
+    private PRE_RECORD_TIME: number;
+    private PRE_RECORD_SAMPLES: number;
+    
+    // 静音检测
+    private lastSpeechTime: number;
+    private SILENCE_THRESHOLD: number;
+    private silenceTimeout: NodeJS.Timeout | null;
+    private onSpeechRecognized: ((text: string) => void) | null;
+
+
+    constructor(vadUrl: string, asrUrl: string) {
         this.vadUrl = vadUrl;
         this.asrUrl = asrUrl;
         this.isProcessingAudio = false;
@@ -31,6 +64,7 @@ class ASRProcessor {
         this.lastSpeechTime = 0;
         this.SILENCE_THRESHOLD = 500;
         this.silenceTimeout = null;
+        this.onSpeechRecognized = null;
 
         // 初始化
         this.setupAudioSystem();
@@ -313,4 +347,4 @@ class ASRProcessor {
     }
 }
 
-module.exports = { ASRProcessor };
+export { ASRProcessor };

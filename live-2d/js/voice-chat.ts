@@ -2,7 +2,7 @@ import { ipcRenderer } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { GoogleGenAI, createUserContent, createPartFromUri } from "@google/generative-ai"; // 注意这里是 @google/generative-ai
+import { GoogleGenAI, createUserContent, createPartFromUri } from "@google/genai";
 import { ASRProcessor } from './asr-processor';
 import type { Live2DModel } from 'pixi-live2d-display'; // 导入 Live2DModel 类型
 import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型
@@ -87,7 +87,8 @@ class VoiceChatInterface {
 
         if (this.provider === 'google_aistudio') {
             this.ai = new GoogleGenAI({ apiKey: this.API_KEY });
-            this.chat = this.ai.getGenerativeModel({ model: this.MODEL }).startChat({ // 使用 getGenerativeModel 和 startChat
+            this.chat = this.ai.chats.create({
+                model: this.MODEL,
                 history: [],
             });
         }
@@ -183,6 +184,52 @@ ${memoryContent}`;
                 }
             }
         });
+    }
+
+    // 设置模型
+    setModel(model: Live2DModel) { // 添加 model 类型
+        this.model = model;
+        console.log('模型已设置到VoiceChat');
+    }
+
+    // 设置情绪动作映射器
+    setEmotionMapper(emotionMapper: EmotionMotionMapper) { // 添加 emotionMapper 类型
+        this.emotionMapper = emotionMapper;
+        console.log('情绪动作映射器已设置到VoiceChat');
+    }
+
+    // 检查消息是否需要记忆
+    async checkMessageForMemory(text: string) { // 添加 text 类型
+        try {
+            const response = await fetch(`${this.memoryCheckUrl}?text=${encodeURIComponent(text)}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                throw new Error('记忆检查API请求失败');
+            }
+
+            const data = await response.json();
+            console.log('记忆检查结果:', data);
+            return data["需要检索"] === "是";
+        } catch (error) {
+            console.error('记忆检查错误:', error);
+            return false;
+        }
+    }
+
+    // 保存消息到记忆文件
+    async saveToMemory(text: string) { // 添加 text 类型
+        try {
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            const memoryEntry = `[${timestamp}] ${text}\n`;
+
+            fs.appendFileSync(this.memoryFilePath, memoryEntry, 'utf8');
+            console.log('已保存到记忆文件:', text);
+            return true;
+        } catch (error) {
+            console.error('保存记忆失败:', error);
+            return false;
         }
     }
 
@@ -199,7 +246,7 @@ ${memoryContent}`;
     }
 
     // 设置上下文限制
-    setContextLimit(enable) {
+    setContextLimit(enable: boolean) {
         this.enableContextLimit = enable;
         if (enable) {
             this.trimMessages();
@@ -207,7 +254,7 @@ ${memoryContent}`;
     }
 
     // 设置最大上下文消息数
-    setMaxContextMessages(count) {
+    setMaxContextMessages(count: number) {
         if (count < 1) throw new Error('最大消息数不能小于1');
         this.maxContextMessages = count;
         if (this.enableContextLimit) {
@@ -251,7 +298,7 @@ ${memoryContent}`;
     }
 
     // 将图片转换为base64编码
-    async imageToBase64(imagePath) {
+    async imageToBase64(imagePath: string): Promise<string> {
         return new Promise((resolve, reject) => {
             fs.readFile(imagePath, (err, data) => {
                 if (err) {
@@ -266,7 +313,7 @@ ${memoryContent}`;
     }
 
     // 判断是否需要截图
-    async shouldTakeScreenshot(text) {
+    async shouldTakeScreenshot(text: string): Promise<boolean> {
         if (!this.screenshotEnabled) return false;
 
         // 如果开启了自动截图，直接返回 true
@@ -304,7 +351,7 @@ ${memoryContent}`;
     }
 
     // 发送消息到LLM
-    async sendToLLM(prompt) {
+    async sendToLLM(prompt: string) {
         try {
             // 重置TTS处理器的状态
             this.ttsProcessor.reset();
@@ -334,69 +381,61 @@ ${memoryContent}`;
             // 调试消息数组
             console.log(`发送给LLM的消息数: ${messagesForAPI.length}`);
 
-            if (this.provider === 'google_aistudio'){
+            if (this.provider === 'google_aistudio') {
+                if (!this.ai || !this.chat) {
+                    throw new Error("Google AI Studio not initialized");
+                }
                 try {
-                    // 如果需要截图，创建多模态消息
-                    let config = {message: prompt,
-                        config: {
-                            systemInstruction: this.messages[0].content,
-                        }}
                     let result;
+                    const systemInstruction = this.messages.find(m => m.role === 'system')?.content;
+                    if (typeof systemInstruction !== 'string') {
+                        throw new Error("System prompt is not a string or not found.");
+                    }
 
                     if (needScreenshot) {
                         try {
                             console.log("需要截图");
-                            
                             const screenshotPath = await this.takeScreenshot();
-
-                            // 处理Google AI Studio的截图
+                            if (!this.ai) throw new Error("Google AI not initialized for file upload.");
                             const image = await this.ai.files.upload({
                                 file: screenshotPath,
                             });
                             console.log("上传截图成功:", image.uri);
 
-                            const config_pic = {
+                            const config_pic_contents = [
+                                
+                                createUserContent([
+                                    prompt,
+                                    createPartFromUri(image.uri, image.mimeType),
+                                ]),
+                            ];
+                            console.log(prompt);
+                            if (!this.ai) throw new Error("Google AI not initialized for content generation.");
+                            result = await this.ai.models.generateContentStream({
                                 model: this.MODEL,
-                                config: {
-                                    systemInstruction: this.messages[0].content,
-                                },
-                                contents: [
-                                    createUserContent([
-                                        prompt,
-                                        createPartFromUri(image.uri, image.mimeType),
-                                    ]),
-                                ]
-                            }
-                            process.stdout.write(prompt);
-                            result = await this.ai.models.generateContentStream(config_pic)
-                            // result = await this.chat.sendMessageStream(message=prompt, config=config)
-                            // process.stdout.write("su");
+                                contents: config_pic_contents,
+                                systemInstruction: systemInstruction,
+                            });
                         } catch (error) {
                             console.error("截图处理失败:", error);
-                            // 如果截图失败，使用纯文本消息，已经设置好了
-                            config = {message: prompt,
-                                config: {
-                                    systemInstruction: this.messages[0].content,
-                                }
-                            }
-                            process.stdout.write(error);
-                            result = await this.chat.sendMessageStream(config);
+                            // 如果截图失败，使用纯文本消息
+                            if (!this.chat) throw new Error("Google AI Chat not initialized for text message.");
+                            result = await this.chat.sendMessageStream(prompt);
                         }
+                    } else {
+                        if (!this.chat) throw new Error("Google AI Chat not initialized for text message.");
+                        result = await this.chat.sendMessageStream(prompt);
                     }
-                    else{
-                        // const result = await this.chat.sendMessageStream(config);
-                        result = await this.chat.sendMessageStream(config);
-                    }
-                    
-                    for await (const chunk of result) {
-                        fullResponse += chunk.text;
-                        this.ttsProcessor.addStreamingText(chunk.text);
-                        process.stdout.write(chunk.text);
-                        process.stdout.write("_".repeat(80));
+
+                    for await (const chunk of result.stream) {
+                        const chunkText = chunk.text();
+                        fullResponse += chunkText;
+                        this.ttsProcessor.addStreamingText(chunkText);
+                        console.log(chunkText);
                     }
 
                     // if (1){
-                    //     process.stdout.write("fullResponse");
+                    //     console.log("fullResponse");
                     //     const response = await this.ai.models.generateContent({
                     //         model: "gemini-2.0-flash",
                     //         contents: fullResponse,
@@ -423,29 +462,29 @@ ${memoryContent}`;
                     //         },
                     //     });
                     //     // fullResponse = response.text;
-                    //     // process.stdout.write(fullResponse);
+                    //     // console.log(fullResponse);
                     // }
                     
-                    // process.stdout.write("line388");
+                    // 截图后，上下文需要手动维护，因为 generateContentStream 是无状态的
                     if (needScreenshot){
                         const config_reminder = {message: "刚才我向你询问了一张图片有关：" + prompt + "。你的回答是:" + fullResponse,
                             config: {
                                 systemInstruction: this.messages[0].content,
                             }}
                         const diacarded = await this.chat.sendMessage(config_reminder);
-                        process.stdout.write("reminder used");
-                        process.stdout.write(diacarded.text);
+                        console.log("reminder used");
+                        console.log(diacarded.text);
                     }
 
-                    this.messages.push({'role': 'assistant', 'content': fullResponse});
+                    this.messages.push({ 'role': 'assistant', 'content': fullResponse });
                     if (this.enableContextLimit) {
                         this.trimMessages();
                     }
-                } catch (error) {
-                        process.stdout.write("Google AI Studio error:", error);
-                        this.showSubtitle(error.message, 3000);
-                        this.asrProcessor.resumeRecording();
-                        setTimeout(() => this.hideSubtitle(), 3000);
+                } catch (error: any) {
+                    console.error("Google AI Studio error:", error);
+                    this.showSubtitle(error.message, 3000);
+                    this.asrProcessor.resumeRecording();
+                    setTimeout(() => this.hideSubtitle(), 3000);
                 }
             }
             else if (this.provider !== 'google_aistudio') {
@@ -522,6 +561,9 @@ ${memoryContent}`;
                 throw new Error(errorMessage);
             }
 
+            if (!response.body) {
+                throw new Error("Response body is null");
+            }
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
 
@@ -599,7 +641,7 @@ ${memoryContent}`;
         }
     }
 
-    handleTextMessage(text) {
+    handleTextMessage(text: string) {
         // 显示用户消息
         this.addChatMessage('user', text);
 
@@ -610,18 +652,19 @@ ${memoryContent}`;
         this.sendToLLM(text);
     }
 
-    addChatMessage(role, content) {
+    addChatMessage(role: 'user' | 'assistant', content: string) {
         const chatMessages = document.getElementById('chat-messages');
-        const messageElement = document.createElement('div');
-        messageElement.innerHTML = `<strong>${role === 'user' ? '你' : 'Seraphim'}:</strong> ${content}`;
-        chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (chatMessages) {
+            const messageElement = document.createElement('div');
+            messageElement.innerHTML = `<strong>${role === 'user' ? '你' : 'Seraphim'}:</strong> ${content}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
 
     // 处理弹幕消息
-    async handleBarrageMessage(nickname, text) {
+    async handleBarrageMessage(nickname: string, text: string) {
         try {
-            if (!this) return;
 
             // 如果正在播放TTS，直接返回，不处理弹幕
             if (global.isPlayingTTS) {
@@ -629,8 +672,8 @@ ${memoryContent}`;
                 return;
             }
 
-            // 确保系统提示已增强
-            enhanceSystemPrompt();
+            // 确保系统提示已增强 (暂时注释，待迁移)
+            // enhanceSystemPrompt(); // 此函数未定义，已注释
 
             // 将弹幕消息添加到主对话历史中，带标记
             this.messages.push({
@@ -689,6 +732,9 @@ ${memoryContent}`;
             }
 
             let fullResponse = "";
+            if (!response.body) {
+                throw new Error("Response body is null");
+            }
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
 
@@ -757,8 +803,6 @@ ${memoryContent}`;
                 errorMessage = "无效的API地址，请检查配置";
             } else if (error.message.includes("请求过于频繁")) {
                 errorMessage = "请求频率超限，请稍后再试";
-            } else if (error.message.includes("服务器错误")) {
-                errorMessage = "AI服务不可用，请稍后再试";
             } else if (error.name === "TypeError" && error.message.includes("fetch")) {
                 errorMessage = "网络错误，请检查网络连接";
             } else if (error.name === "SyntaxError") {
@@ -772,4 +816,4 @@ ${memoryContent}`;
     }
 }
 
-module.exports = { VoiceChatInterface };
+export { VoiceChatInterface };
