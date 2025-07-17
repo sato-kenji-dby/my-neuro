@@ -1,5 +1,8 @@
+import { EventEmitter } from 'events';
+import { stateManager } from './state-manager';
+
 // ASR（自动语音识别）功能模块
-class ASRProcessor {
+class ASRProcessor extends EventEmitter {
     private vadUrl: string;
     private asrUrl: string;
     private isProcessingAudio: boolean;
@@ -30,10 +33,10 @@ class ASRProcessor {
     private lastSpeechTime: number;
     private SILENCE_THRESHOLD: number;
     private silenceTimeout: NodeJS.Timeout | null;
-    private onSpeechRecognized: ((text: string) => void) | null;
 
 
     constructor(vadUrl: string, asrUrl: string) {
+        super(); // 调用父类构造函数
         this.vadUrl = vadUrl;
         this.asrUrl = asrUrl;
         this.isProcessingAudio = false;
@@ -64,7 +67,6 @@ class ASRProcessor {
         this.lastSpeechTime = 0;
         this.SILENCE_THRESHOLD = 500;
         this.silenceTimeout = null;
-        this.onSpeechRecognized = null;
 
         // 初始化
         this.setupAudioSystem();
@@ -123,7 +125,7 @@ class ASRProcessor {
         if (this.isProcessingAudio || this.asrLocked) return; 
         
         // 立即设置全局状态为正在处理用户输入，防止自动对话触发
-        global.isProcessingUserInput = true;
+        stateManager.isProcessingUserInput = true;
         
         this.lastSpeechTime = Date.now();
         
@@ -154,7 +156,7 @@ class ASRProcessor {
             }
         } else {
             // 如果不是在录音状态，重置用户输入处理标志
-            global.isProcessingUserInput = false;
+            stateManager.isProcessingUserInput = false;
         }
     }
 
@@ -242,7 +244,7 @@ class ASRProcessor {
             // 即使丢弃录音也保持锁定，直到交互完成
             this.asrLocked = false;
             // 重置全局处理状态
-            global.isProcessingUserInput = false;
+            stateManager.isProcessingUserInput = false;
         }
         
         this.continuousBuffer = this.continuousBuffer.slice(-this.PRE_RECORD_SAMPLES);
@@ -298,10 +300,8 @@ class ASRProcessor {
             if (result.status === 'success' && result.text) {
                 console.log("用户说:", result.text);
                 
-                // 回调函数，由外部实现
-                if (this.onSpeechRecognized) {
-                    this.onSpeechRecognized(result.text);
-                }
+                // 发出事件
+                this.emit('speech-recognized', result.text);
                 
                 return result.text;
             } else {
@@ -309,7 +309,7 @@ class ASRProcessor {
                 // 如果ASR失败，也要解锁ASR以允许用户重试
                 this.asrLocked = false;
                 // 重置全局处理状态
-                global.isProcessingUserInput = false;
+                stateManager.isProcessingUserInput = false;
                 return null;
             }
         } catch (error) {
@@ -317,7 +317,7 @@ class ASRProcessor {
             // 如果处理失败，也要解锁ASR以允许用户重试
             this.asrLocked = false;
             // 重置全局处理状态
-            global.isProcessingUserInput = false;
+            stateManager.isProcessingUserInput = false;
             return null;
         }
     }
@@ -341,10 +341,6 @@ class ASRProcessor {
         console.log('Recording resumed, ASR unlocked');
     }
 
-    // 设置语音识别完成的回调函数
-    setOnSpeechRecognized(callback: (text: string) => void): void {
-        this.onSpeechRecognized = callback;
-    }
 }
 
 export { ASRProcessor };

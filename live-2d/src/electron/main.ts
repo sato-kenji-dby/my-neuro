@@ -14,16 +14,9 @@ import { AutoChatModule } from '$js/auto-chat';
 import { EmotionMotionMapper } from '$js/emotion-motion-mapper';
 import { MCPClientModule } from '$js/mcp-client-module';
 import { ASRProcessor } from '$js/asr-processor';
-
-// 声明全局变量，用于模拟渲染进程的全局状态
-declare global {
-    var isProcessingUserInput: boolean;
-    var isPlayingTTS: boolean;
-}
-
-// 初始化全局变量
-global.isProcessingUserInput = false;
-global.isPlayingTTS = false;
+import { stateManager } from '$js/state-manager'; // 导入 StateManager
+import { LLMService } from '$js/llm-service'; // 导入 LLMService
+import { ScreenshotService } from '$js/screenshot-service'; // 导入 ScreenshotService
 
 // 全局变量，用于存储 Live2DAppCore 实例
 let live2dAppCore: Live2DAppCore;
@@ -44,6 +37,8 @@ class Live2DAppCore {
     public liveStreamModule: LiveStreamModule | undefined;
     public autoChatModule: AutoChatModule | undefined;
     public mcpClientModule: MCPClientModule | undefined;
+    public llmService: LLMService | undefined; // 添加 LLMService 实例
+    public screenshotService: ScreenshotService | undefined; // 添加 ScreenshotService 实例
 
     private subtitleTimeout: NodeJS.Timeout | null = null;
     private barrageQueue: { nickname: string; text: string }[] = [];
@@ -102,24 +97,25 @@ class Live2DAppCore {
         this.barrageQueue.push({ nickname, text });
         this.logToTerminal('info', `弹幕已加入队列: ${nickname}: ${text}`);
 
-        if (!global.isPlayingTTS && !global.isProcessingUserInput) { // 使用全局变量
+        if (!stateManager.isPlayingTTS && !stateManager.isProcessingUserInput) { // 使用StateManager
             this.processBarrageQueue();
         }
     }
 
     // 处理弹幕队列
     private async processBarrageQueue() {
-        if (global.isProcessingUserInput || global.isPlayingTTS || this.barrageQueue.length === 0) { // 使用全局变量
+        if (stateManager.isProcessingUserInput || stateManager.isPlayingTTS || this.barrageQueue.length === 0) { // 使用StateManager
             return;
         }
 
-        global.isProcessingUserInput = true; // 标记正在处理弹幕
+        stateManager.isProcessingUserInput = true; // 标记正在处理弹幕
 
         try {
             const { nickname, text } = this.barrageQueue.shift()!;
             this.logToTerminal('info', `处理队列中的弹幕: ${nickname}: ${text}`);
-            await this.voiceChat?.handleBarrageMessage(nickname, text); // 调用 VoiceChatInterface 的方法
-            global.isProcessingUserInput = false; // 结束处理弹幕
+            // await this.voiceChat?.handleBarrageMessage(nickname, text); // 暂时注释，待LLMService重构
+            // TODO: 调用 LLMService 处理弹幕消息
+            stateManager.isProcessingUserInput = false; // 结束处理弹幕
 
             if (this.autoChatModule) {
                 this.autoChatModule.updateLastInteractionTime();
@@ -130,7 +126,7 @@ class Live2DAppCore {
             }, 500);
         } catch (error) {
             this.logToTerminal('error', `处理弹幕队列出错: ${(error as Error).message}`);
-            global.isProcessingUserInput = false; // 确保出错时也解除锁定
+            stateManager.isProcessingUserInput = false; // 确保出错时也解除锁定
         }
     }
 
@@ -138,13 +134,13 @@ class Live2DAppCore {
     public handleTextMessage(text: string) {
         if (!text.trim()) return;
         this.mainWindow.webContents.send('add-chat-message', { role: 'user', content: text });
-        global.isProcessingUserInput = true; // 锁定ASR
+        stateManager.isProcessingUserInput = true; // 锁定ASR
         if (this.voiceChat) {
             this.voiceChat.sendToLLM(text).finally(() => {
-                global.isProcessingUserInput = false;
+                stateManager.isProcessingUserInput = false;
             });
         } else {
-            global.isProcessingUserInput = false;
+            stateManager.isProcessingUserInput = false;
         }
     }
 
@@ -159,8 +155,8 @@ class Live2DAppCore {
             if (this.ttsProcessor) {
                 this.ttsProcessor.interrupt();
             }
-            global.isPlayingTTS = false; // 更新全局状态
-            global.isProcessingUserInput = false; // 更新全局状态
+            stateManager.isPlayingTTS = false; // 更新全局状态
+            stateManager.isProcessingUserInput = false; // 更新全局状态
             if (this.voiceChat && this.voiceChat.asrProcessor) { // 访问 asrProcessor
                 setTimeout(() => {
                     this.voiceChat?.asrProcessor.resumeRecording(); // 访问 asrProcessor
@@ -187,12 +183,12 @@ class Live2DAppCore {
             this.config.tts.url,
             (value: number) => this.mainWindow.webContents.send('set-mouth-open-y', value), // 通过 IPC 发送
             () => {
-                global.isPlayingTTS = true; // 更新全局状态
+                stateManager.isPlayingTTS = true; // 更新全局状态
                 if (this.voiceChat) this.voiceChat.pauseRecording();
                 this.mainWindow.webContents.send('tts-playing-status', true);
             },
             () => {
-                global.isPlayingTTS = false; // 更新全局状态
+                stateManager.isPlayingTTS = false; // 更新全局状态
                 if (this.voiceChat) this.voiceChat.resumeRecording();
                 if (this.autoChatModule) {
                     this.autoChatModule.updateLastInteractionTime();
@@ -203,11 +199,29 @@ class Live2DAppCore {
             this.config
         );
 
+        // 创建 LLMService
+        this.llmService = new LLMService(
+            this.config.llm,
+            this.ttsProcessor,
+            (text, duration) => this.showSubtitle(text, duration),
+            () => this.hideSubtitle(),
+            (level, message) => this.logToTerminal(level, message)
+        );
+
+        // 创建 ScreenshotService
+        this.screenshotService = new ScreenshotService(
+            this.config.vision,
+            this.mainWindow,
+            (level, message) => this.logToTerminal(level, message)
+        );
+
         // 创建语音聊天接口
         this.voiceChat = new VoiceChatInterface(
             this.config.asr.vad_url,
             this.config.asr.asr_url,
             this.ttsProcessor,
+            this.llmService!, // 传递 LLMService 实例
+            this.screenshotService!, // 传递 ScreenshotService 实例
             (text, duration) => this.showSubtitle(text, duration), // 使用 Live2DAppCore 的 showSubtitle
             () => this.hideSubtitle(), // 使用 Live2DAppCore 的 hideSubtitle
             this.config
@@ -234,7 +248,7 @@ class Live2DAppCore {
                 if (this.voiceChat) {
                     this.voiceChat.sendToLLM = async (prompt: string) => {
                         try {
-                            global.isProcessingUserInput = true; // 更新全局状态
+                            stateManager.isProcessingUserInput = true; // 更新全局状态
                             this.voiceChat?.messages.push({'role': 'user', 'content': prompt});
                             if (this.voiceChat?.enableContextLimit) {
                                 this.voiceChat.trimMessages();
@@ -380,7 +394,7 @@ class Live2DAppCore {
                             this.voiceChat?.asrProcessor?.resumeRecording();
                             setTimeout(() => this.hideSubtitle(), 3000);
                         } finally {
-                            global.isProcessingUserInput = false; // 更新全局状态
+                            stateManager.isProcessingUserInput = false; // 更新全局状态
                         }
                     };
                 }
