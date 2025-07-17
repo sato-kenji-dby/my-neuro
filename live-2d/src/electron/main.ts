@@ -185,6 +185,7 @@ class Live2DAppCore {
             this.config
         );
 
+
         // 创建 LLMService
         this.llmService = new LLMService(
             this.config.llm,
