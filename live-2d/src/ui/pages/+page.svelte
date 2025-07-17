@@ -4,8 +4,9 @@
     import { browser } from '$app/environment';
     import type { Application, DisplayObject } from 'pixi.js';
     import type { Live2DModel } from 'pixi-live2d-display';
-    import { ModelInteractionController } from '$js/model-interaction'; // 仍然需要，因为模型交互在渲染进程
-    import { EmotionMotionMapper } from '$js/emotion-motion-mapper'; // 仍然需要，因为情绪动作在渲染进程
+    import { ModelInteractionController } from '$js/model-interaction';
+    import { EmotionMotionMapper } from '$js/emotion-motion-mapper';
+    import { AudioPlayer } from '$js/audio-player';
 
     // UI 相关的状态
     let subtitleText = '';
@@ -19,7 +20,8 @@
     let model: Live2DModel;
     let modelController: ModelInteractionController;
     let emotionMapper: EmotionMotionMapper;
-    let asrProcessor: any; // ASRProcessor 实例
+    let asrProcessor: any;
+    let audioPlayer: AudioPlayer;
 
     // 处理文本消息发送
     function handleTextMessage(text: string) {
@@ -98,6 +100,14 @@
             asrProcessor?.resumeRecording();
         });
 
+        ipcRenderer.on('play-audio', (_, { audioDataUrl, text }) => {
+            audioPlayer?.play(audioDataUrl, text);
+        });
+
+        ipcRenderer.on('interrupt-playback', () => {
+            audioPlayer?.interrupt();
+        });
+
         // 动态导入仅客户端的库
         const PIXI = await import('pixi.js');
         const { Live2DModel } = await import('pixi-live2d-display');
@@ -133,6 +143,16 @@
         modelController.setupInitialModelProperties(2.3);
 
         emotionMapper = new EmotionMotionMapper(model);
+
+        // 初始化 AudioPlayer
+        audioPlayer = new AudioPlayer({
+            model: model,
+            onMouthUpdate: (value) => modelController.setMouthOpenY(value),
+            onStart: () => ipcRenderer.send('tts-playing-status', true),
+            onEnd: () => ipcRenderer.send('tts-playing-status', false),
+            showSubtitle: (text) => ipcRenderer.send('update-subtitle', { text, show: true }),
+            hideSubtitle: () => ipcRenderer.send('update-subtitle', { text: '', show: false }),
+        });
 
         // 通知主进程 Live2D 模型已加载
         ipcRenderer.send('live2d-model-ready', 2.3);
@@ -203,6 +223,8 @@
             // 移除所有监听器以防内存泄漏
             window.ipcRenderer.removeAllListeners('pause-asr');
             window.ipcRenderer.removeAllListeners('resume-asr');
+            window.ipcRenderer.removeAllListeners('play-audio');
+            window.ipcRenderer.removeAllListeners('interrupt-playback');
 
             window.ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程应用已关闭，资源已清理' });
             // 通知主进程关闭相关服务
