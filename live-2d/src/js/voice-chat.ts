@@ -1,8 +1,6 @@
-import { ipcRenderer } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { ASRProcessor } from './asr-processor';
 import type { Live2DModel } from 'pixi-live2d-display'; // 导入 Live2DModel 类型
 import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型
 import type { EmotionMotionMapper } from './emotion-motion-mapper'; // 导入 EmotionMotionMapper 类型
@@ -40,7 +38,6 @@ class VoiceChatInterface {
     private screenshotService: ScreenshotService; // 添加 ScreenshotService 实例
     private showSubtitle: (text: string, duration: number) => void;
     private hideSubtitle: () => void;
-    public asrProcessor: ASRProcessor;
     private maxContextMessages: number;
     public enableContextLimit: boolean;
     private memoryFilePath: string;
@@ -51,8 +48,6 @@ class VoiceChatInterface {
     private asrLocked: boolean = false;
 
     constructor(
-        vadUrl: string,
-        asrUrl: string,
         ttsProcessor: TTSProcessor,
         llmService: LLMService, // 接收 LLMService 实例
         screenshotService: ScreenshotService, // 接收 ScreenshotService 实例
@@ -66,8 +61,6 @@ class VoiceChatInterface {
         this.screenshotService = screenshotService;
         this.showSubtitle = showSubtitle;
         this.hideSubtitle = hideSubtitle;
-        
-        this.asrProcessor = new ASRProcessor(vadUrl, asrUrl);
         
         this.maxContextMessages = this.config.context.max_messages;
         this.enableContextLimit = this.config.context.enable_limit;
@@ -112,44 +105,6 @@ ${memoryContent}`;
                 'content': systemPrompt
             }
         ];
-
-        // 监听 ASRProcessor 的 speech-recognized 事件
-        this.asrProcessor.on('speech-recognized', async (text: string) => {
-            this.showSubtitle(`用户: ${text}`, 3000);
-
-            stateManager.isProcessingUserInput = true;
-
-            try {
-                const needMemory = await this.checkMessageForMemory(text);
-                if (needMemory) {
-                    await this.saveToMemory(text);
-                    console.log('用户消息已保存到记忆库');
-                } else {
-                    console.log('用户消息不需要保存到记忆库');
-                }
-
-                await this.sendToLLM(text);
-            } finally {
-                stateManager.isProcessingUserInput = false;
-
-                const lastUserMsg = this.messages.filter(m => m.role === 'user').pop();
-                const lastAIMsg = this.messages.filter(m => m.role === 'assistant').pop();
-
-                if (lastUserMsg && lastAIMsg) {
-                    const newContent = `【用户】: ${lastUserMsg.content}\n【Seraphim】: ${lastAIMsg.content}\n`;
-
-                    try {
-                        fs.appendFileSync(
-                            path.join(__dirname, '..', '对话记录.txt'),
-                            newContent,
-                            'utf8'
-                        );
-                    } catch (error: unknown) {
-                        console.error('保存对话记录失败:', (error as Error).message);
-                    }
-                }
-            }
-        });
     }
 
     // 设置模型
@@ -201,14 +156,14 @@ ${memoryContent}`;
 
     // 暂停录音
     async pauseRecording() {
-        this.asrProcessor.pauseRecording();
-        console.log('Recording paused due to TTS playback');
+        // This will be handled by the frontend via IPC
+        console.log('Requesting to pause recording via IPC');
     }
 
     // 恢复录音
     async resumeRecording() {
-        this.asrProcessor.resumeRecording();
-        console.log('Recording resumed after TTS playback, ASR unlocked');
+        // This will be handled by the frontend via IPC
+        console.log('Requesting to resume recording via IPC');
     }
 
     // 设置上下文限制
@@ -250,14 +205,40 @@ ${memoryContent}`;
         console.log(`裁剪后: 消息总数 ${this.messages.length} 条, 非系统消息 ${recentMessages.length} 条`);
     }
 
-    // 开始录音
-    async startRecording() {
-        await this.asrProcessor.startRecording();
-    }
+    // 处理从渲染进程收到的已识别语音
+    public async handleRecognizedSpeech(text: string) {
+        this.showSubtitle(`用户: ${text}`, 3000);
+        stateManager.isProcessingUserInput = true;
 
-    // 停止录音
-    stopRecording() {
-        this.asrProcessor.stopRecording();
+        try {
+            const needMemory = await this.checkMessageForMemory(text);
+            if (needMemory) {
+                await this.saveToMemory(text);
+                console.log('用户消息已保存到记忆库');
+            } else {
+                console.log('用户消息不需要保存到记忆库');
+            }
+
+            await this.sendToLLM(text);
+        } finally {
+            stateManager.isProcessingUserInput = false;
+
+            const lastUserMsg = this.messages.filter(m => m.role === 'user').pop();
+            const lastAIMsg = this.messages.filter(m => m.role === 'assistant').pop();
+
+            if (lastUserMsg && lastAIMsg) {
+                const newContent = `【用户】: ${lastUserMsg.content}\n【Seraphim】: ${lastAIMsg.content}\n`;
+                try {
+                    fs.appendFileSync(
+                        path.join(__dirname, '..', '对话记录.txt'),
+                        newContent,
+                        'utf8'
+                    );
+                } catch (error: unknown) {
+                    console.error('保存对话记录失败:', (error as Error).message);
+                }
+            }
+        }
     }
 
     // 发送消息到LLM
@@ -299,7 +280,7 @@ ${memoryContent}`;
         } catch (error: unknown) {
             console.error("LLM处理错误:", (error as Error).message);
             this.showSubtitle(`抱歉，出现了一个错误: ${(error as Error).message.substring(0, 50)}...`, 3000);
-            this.asrProcessor.resumeRecording();
+            // this.asrProcessor.resumeRecording(); // This will be handled by the frontend via IPC
             setTimeout(() => this.hideSubtitle(), 3000);
         } finally {
             stateManager.isProcessingUserInput = false;

@@ -12,10 +12,13 @@
     "module": "es2020", // 或 "esnext"
     "moduleResolution": "bundler",
     "outDir": "dist-electron",
-    "verbatimModuleSyntax": false, // 禁用 verbatimModuleSyntax
+    "verbatimModuleSyntax": false,
     "types": ["node", "electron"] // 确保包含 electron 类型
   },
   "include": [
+    ".svelte-kit/ambient.d.ts",
+    ".svelte-kit/non-ambient.d.ts",
+    ".svelte-kit/types/**/$types.d.ts",
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.svelte",

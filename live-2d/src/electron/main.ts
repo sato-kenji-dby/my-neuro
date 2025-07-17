@@ -11,7 +11,6 @@ import { LiveStreamModule } from '$js/LiveStreamModule';
 import { AutoChatModule } from '$js/auto-chat';
 import { EmotionMotionMapper } from '$js/emotion-motion-mapper';
 import { MCPClientModule } from '$js/mcp-client-module';
-import { ASRProcessor } from '$js/asr-processor';
 import { stateManager } from '$js/state-manager'; // 导入 StateManager
 import { LLMService } from '$js/llm-service'; // 导入 LLMService
 import { ScreenshotService } from '$js/screenshot-service'; // 导入 ScreenshotService
@@ -153,12 +152,11 @@ class Live2DAppCore {
             }
             stateManager.isPlayingTTS = false; // 更新全局状态
             stateManager.isProcessingUserInput = false; // 更新全局状态
-            if (this.voiceChat && this.voiceChat.asrProcessor) { // 访问 asrProcessor
-                setTimeout(() => {
-                    this.voiceChat?.asrProcessor.resumeRecording(); // 访问 asrProcessor
-                    this.logToTerminal('info', 'ASR录音已恢复');
-                }, 200);
-            }
+            
+            // 通过IPC通知渲染进程恢复ASR
+            this.mainWindow.webContents.send('resume-asr');
+            this.logToTerminal('info', '请求渲染进程恢复ASR录音');
+
             this.logToTerminal('info', '系统已复位，可以继续对话');
             this.mainWindow.webContents.send('tts-playing-status', false);
             this.mainWindow.webContents.send('reset-ui-state');
@@ -174,24 +172,16 @@ class Live2DAppCore {
             this.updateMouseIgnore(ignore);
         });
 
+        // 监听渲染进程发送的已识别语音
+        ipcMain.on('speech-recognized', (_, text: string) => {
+            if (this.voiceChat) {
+                this.voiceChat.handleRecognizedSpeech(text);
+            }
+        });
+
         // 创建TTS处理器
         this.ttsProcessor = new TTSProcessor(
-            this.config.tts.url,
-            (value: number) => this.mainWindow.webContents.send('set-mouth-open-y', value), // 通过 IPC 发送
-            () => {
-                stateManager.isPlayingTTS = true; // 更新全局状态
-                if (this.voiceChat) this.voiceChat.pauseRecording();
-                this.mainWindow.webContents.send('tts-playing-status', true);
-            },
-            () => {
-                stateManager.isPlayingTTS = false; // 更新全局状态
-                if (this.voiceChat) this.voiceChat.resumeRecording();
-                if (this.autoChatModule) {
-                    this.autoChatModule.updateLastInteractionTime();
-                }
-                this.processBarrageQueue();
-                this.mainWindow.webContents.send('tts-playing-status', false);
-            },
+            (channel, ...args) => this.mainWindow.webContents.send(channel, ...args),
             this.config
         );
 
@@ -213,12 +203,10 @@ class Live2DAppCore {
 
         // 创建语音聊天接口
         this.voiceChat = new VoiceChatInterface(
-            this.config.asr.vad_url,
-            this.config.asr.asr_url,
             this.ttsProcessor,
             this.llmService!, // 传递 LLMService 实例
             this.screenshotService!, // 传递 ScreenshotService 实例
-            (text, duration) => this.showSubtitle(text, duration), // 使用 Live2DAppCore 的 showSubtitle
+            (text: string, duration: number | null) => this.showSubtitle(text, duration), // 使用 Live2DAppCore 的 showSubtitle
             () => this.hideSubtitle(), // 使用 Live2DAppCore 的 hideSubtitle
             this.config
         );
@@ -266,10 +254,7 @@ class Live2DAppCore {
             this.ttsProcessor?.processTextToSpeech(this.config.ui.intro_text || "你好，我叫fake neuro。");
         }, 1000);
 
-        // 开始录音
-        setTimeout(() => {
-            this.voiceChat?.startRecording();
-        }, 3000);
+        // 录音将在前端启动
 
         // 初始化并启动自动对话模块
         setTimeout(() => {
@@ -282,9 +267,7 @@ class Live2DAppCore {
     }
 
     public async shutdown() {
-        if (this.voiceChat) {
-            this.voiceChat.stopRecording();
-        }
+        // 录音将在前端停止
         if (this.liveStreamModule && this.liveStreamModule.isRunning) {
             this.liveStreamModule.stop();
         }

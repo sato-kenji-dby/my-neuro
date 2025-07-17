@@ -1,8 +1,9 @@
 <!-- live-2d/src/ui/pages/+page.svelte -->
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import * as PIXI from 'pixi.js';
-    import { Live2DModel } from 'pixi-live2d-display';
+    import { browser } from '$app/environment';
+    import type { Application, DisplayObject } from 'pixi.js';
+    import type { Live2DModel } from 'pixi-live2d-display';
     import { ModelInteractionController } from '$js/model-interaction'; // 仍然需要，因为模型交互在渲染进程
     import { EmotionMotionMapper } from '$js/emotion-motion-mapper'; // 仍然需要，因为情绪动作在渲染进程
 
@@ -14,72 +15,19 @@
     let chatMessages: { role: string; content: string }[] = [];
 
     // PIXI 和 Live2D 实例
-    let app: PIXI.Application;
+    let app: Application;
     let model: Live2DModel;
     let modelController: ModelInteractionController;
     let emotionMapper: EmotionMotionMapper;
-
-    // Electron IPC 渲染进程通信
-    const ipcRenderer = window.electronAPI.ipcRenderer;
-
-    // 监听主进程发送的日志
-    ipcRenderer.on('log-message', (_, { level, message }) => {
-        if (level === 'error') {
-            console.error(message);
-        } else if (level === 'warn') {
-            console.warn(message);
-        } else {
-            console.log(message);
-        }
-    });
-
-    // 监听主进程发送的字幕更新
-    ipcRenderer.on('update-subtitle', (_, { text, show }) => {
-        subtitleText = text;
-        showSubtitleContainer = show;
-        // 确保滚动到底部，显示最新内容
-        const subtitleContainer = document.getElementById('subtitle-container');
-        if (subtitleContainer) {
-            subtitleContainer.scrollTop = subtitleContainer.scrollHeight;
-        }
-    });
-
-    // 监听主进程发送的嘴巴开合值更新
-    ipcRenderer.on('set-mouth-open-y', (_, value: number) => {
-        if (modelController) {
-            modelController.setMouthOpenY(value);
-        }
-    });
-
-    // 监听主进程发送的 TTS 播放状态
-    ipcRenderer.on('tts-playing-status', (_, isPlaying: boolean) => {
-        // 根据需要更新 UI 状态，例如禁用录音按钮等
-        console.log(`TTS 播放状态: ${isPlaying}`);
-    });
-
-    // 监听主进程发送的聊天消息
-    ipcRenderer.on('add-chat-message', (_, message: { role: string; content: string }) => {
-        chatMessages = [...chatMessages, message];
-        // 确保滚动到底部
-        const chatMessagesContainer = document.getElementById('chat-messages');
-        if (chatMessagesContainer) {
-            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-        }
-    });
-
-    // 监听主进程发送的重置 UI 状态事件
-    ipcRenderer.on('reset-ui-state', () => {
-        subtitleText = '';
-        showSubtitleContainer = false;
-        chatInputMessage = '';
-        // chatMessages = []; // 是否清空聊天记录取决于需求
-        console.log('UI 状态已重置');
-    });
+    let asrProcessor: any; // ASRProcessor 实例
 
     // 处理文本消息发送
     function handleTextMessage(text: string) {
         if (!text.trim()) return;
-        ipcRenderer.send('send-text-message', text);
+        // ipcRenderer 现在在 onMount 中定义，需要确保它可用
+        // 但更好的做法是将 ipcRenderer 实例传递给这个函数或使其在更广的作用域可用
+        // 为简单起见，我们假设它在调用时已定义
+        window.ipcRenderer.send('send-text-message', text);
         chatInputMessage = ''; // 清空输入框
     }
 
@@ -87,13 +35,73 @@
     function updateMouseIgnore() {
         if (!model || !app) return;
         const shouldIgnore = !model.containsPoint(app.renderer.plugins.interaction.mouse.global);
-        ipcRenderer.send('set-ignore-mouse-events', {
+        window.ipcRenderer.send('set-ignore-mouse-events', {
             ignore: shouldIgnore,
             options: { forward: true }
         });
     }
 
     onMount(async () => {
+        const ipcRenderer = window.ipcRenderer;
+
+        // 设置所有 IPC 监听器
+        ipcRenderer.on('log-message', (_, { level, message }) => {
+            if (level === 'error') {
+                console.error(message);
+            } else if (level === 'warn') {
+                console.warn(message);
+            } else {
+                console.log(message);
+            }
+        });
+
+        ipcRenderer.on('update-subtitle', (_, { text, show }) => {
+            subtitleText = text;
+            showSubtitleContainer = show;
+            const subtitleContainer = document.getElementById('subtitle-container');
+            if (subtitleContainer) {
+                subtitleContainer.scrollTop = subtitleContainer.scrollHeight;
+            }
+        });
+
+        ipcRenderer.on('set-mouth-open-y', (_, value: number) => {
+            if (modelController) {
+                modelController.setMouthOpenY(value);
+            }
+        });
+
+        ipcRenderer.on('tts-playing-status', (_, isPlaying: boolean) => {
+            console.log(`TTS 播放状态: ${isPlaying}`);
+        });
+
+        ipcRenderer.on('add-chat-message', (_, message: { role: string; content: string }) => {
+            chatMessages = [...chatMessages, message];
+            const chatMessagesContainer = document.getElementById('chat-messages');
+            if (chatMessagesContainer) {
+                chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            }
+        });
+
+        ipcRenderer.on('reset-ui-state', () => {
+            subtitleText = '';
+            showSubtitleContainer = false;
+            chatInputMessage = '';
+            console.log('UI 状态已重置');
+        });
+
+        // ASR 控制事件
+        ipcRenderer.on('pause-asr', () => {
+            asrProcessor?.pauseRecording();
+        });
+
+        ipcRenderer.on('resume-asr', () => {
+            asrProcessor?.resumeRecording();
+        });
+
+        // 动态导入仅客户端的库
+        const PIXI = await import('pixi.js');
+        const { Live2DModel } = await import('pixi-live2d-display');
+
         // 创建PIXI应用
         const canvas = document.getElementById("canvas") as HTMLCanvasElement;
         app = new PIXI.Application({
@@ -109,11 +117,8 @@
 
         // 加载Live2D模型
         try {
-            if (!(window as any).PIXI.live2d) {
-                console.error("PIXI.live2d is not available. Ensure Live2D libraries are loaded.");
-            }
-            model = await Live2DModel.from("/static/2D/Hiyori.model3.json"); // 注意路径
-            app.stage.addChild(model as unknown as PIXI.DisplayObject);
+            model = await Live2DModel.from("/2D/Hiyori.model3.json"); // 注意路径
+            app.stage.addChild(model as unknown as DisplayObject);
         } catch (error: unknown) { // 明确指定 error 类型为 unknown
             ipcRenderer.send('log-to-main', { level: 'error', message: `加载Live2D模型错误: ${(error as Error).message}` });
             alert(`加载Live2D模型错误: ${(error as Error).message}`);
@@ -122,18 +127,34 @@
 
         // 初始化模型交互控制器和情绪动作映射器
         modelController = new ModelInteractionController();
-        modelController.init(model, app);
+        modelController.init(model, app, ipcRenderer);
         // modelController.setupInitialModelProperties(config.ui.model_scale || 2.3); // config 在主进程，需要通过 IPC 获取或在主进程设置
         // 暂时硬编码一个值，或者等待主进程发送配置
         modelController.setupInitialModelProperties(2.3);
 
         emotionMapper = new EmotionMotionMapper(model);
 
-        // 通知主进程 Live2D 模型已加载，并传递必要的实例引用
-        // 注意：不能直接传递 PIXI.Application 和 Live2DModel 实例，因为它们是渲染进程的上下文对象。
-        // 而是通知主进程模型已准备好，主进程再通过 IPC 发送指令来控制模型。
-        // 这里只需要通知主进程模型已准备好，主进程会通过 IPC 发送嘴巴开合等指令。
-        ipcRenderer.send('live2d-model-ready', 2.3); // 传递模型缩放比例
+        // 通知主进程 Live2D 模型已加载
+        ipcRenderer.send('live2d-model-ready', 2.3);
+
+        // 初始化 ASR
+        try {
+            const { ASRProcessor } = await import('$js/asr-processor');
+            const vadUrl = "ws://127.0.0.1:1000/v1/ws/vad";
+            const asrUrl = "http://127.0.0.1:1000/v1/upload_audio";
+            
+            asrProcessor = new ASRProcessor(vadUrl, asrUrl);
+            
+            asrProcessor.on('speech-recognized', (text: string) => {
+                ipcRenderer.send('speech-recognized', text);
+            });
+
+            await asrProcessor.startRecording();
+            ipcRenderer.send('log-to-main', { level: 'info', message: 'ASR 模块已在渲染进程中启动' });
+
+        } catch (error: unknown) {
+            ipcRenderer.send('log-to-main', { level: 'error', message: `初始化 ASR 错误: ${(error as Error).message}` });
+        }
 
         // 鼠标事件监听
         document.addEventListener('mousemove', updateMouseIgnore);
@@ -170,13 +191,23 @@
     });
 
     onDestroy(() => {
-        if (app) {
-            app.destroy();
+        if (browser) {
+            if (app) {
+                app.destroy();
+            }
+            if (asrProcessor) {
+                asrProcessor.stopRecording();
+            }
+            document.removeEventListener('mousemove', updateMouseIgnore);
+            
+            // 移除所有监听器以防内存泄漏
+            window.ipcRenderer.removeAllListeners('pause-asr');
+            window.ipcRenderer.removeAllListeners('resume-asr');
+
+            window.ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程应用已关闭，资源已清理' });
+            // 通知主进程关闭相关服务
+            window.ipcRenderer.send('shutdown-app-core');
         }
-        document.removeEventListener('mousemove', updateMouseIgnore);
-        ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程应用已关闭，资源已清理' });
-        // 通知主进程关闭相关服务
-        ipcRenderer.send('shutdown-app-core');
     });
 </script>
 

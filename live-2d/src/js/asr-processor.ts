@@ -1,8 +1,8 @@
-import { EventEmitter } from 'events';
 import { stateManager } from './state-manager';
 
 // ASR（自动语音识别）功能模块
-class ASRProcessor extends EventEmitter {
+class ASRProcessor {
+    private listeners: { [key: string]: Function[] } = {};
     private vadUrl: string;
     private asrUrl: string;
     private isProcessingAudio: boolean;
@@ -36,7 +36,6 @@ class ASRProcessor extends EventEmitter {
 
 
     constructor(vadUrl: string, asrUrl: string) {
-        super(); // 调用父类构造函数
         this.vadUrl = vadUrl;
         this.asrUrl = asrUrl;
         this.isProcessingAudio = false;
@@ -70,6 +69,21 @@ class ASRProcessor extends EventEmitter {
 
         // 初始化
         this.setupAudioSystem();
+    }
+
+    // 自定义事件发射器方法
+    on(event: string, callback: Function) {
+        if (!this.listeners[event]) {
+            this.listeners[event] = [];
+        }
+        this.listeners[event].push(callback);
+    }
+
+    emit(event: string, ...args: any[]) {
+        const eventListeners = this.listeners[event];
+        if (eventListeners) {
+            eventListeners.forEach(listener => listener(...args));
+        }
     }
 
     async setupAudioSystem() {

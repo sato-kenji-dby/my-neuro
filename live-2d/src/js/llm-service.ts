@@ -252,7 +252,7 @@ class LLMService {
         } catch (error: unknown) {
             this.logToTerminal('error', `LLM处理错误: ${(error as Error).message}`);
             this.showSubtitle(`抱歉，出现了一个错误: ${(error as Error).message.substring(0, 50)}...`, 3000);
-            throw error;
+            return null; // Return null instead of re-throwing the error
         } finally {
             stateManager.isProcessingUserInput = false;
         }

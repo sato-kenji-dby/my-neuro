@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.off(channel, listener),
   invoke: (channel: string, ...args: unknown[]) =>
     ipcRenderer.invoke(channel, ...args),
+  removeAllListeners: (channel: string) =>
+    ipcRenderer.removeAllListeners(channel),
 });
 
 console.log('[Preload] "electronAPI" and "ipcRenderer" exposed.');

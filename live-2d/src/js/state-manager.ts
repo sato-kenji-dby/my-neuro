@@ -1,12 +1,26 @@
-import { EventEmitter } from 'events';
-
-class StateManager extends EventEmitter {
+class StateManager {
+    private listeners: { [key: string]: Function[] } = {};
     private _isProcessingUserInput: boolean = false;
     private _isPlayingTTS: boolean = false;
     private _isProcessingBarrage: boolean = false;
 
     constructor() {
-        super();
+        // No super() call needed for custom event emitter
+    }
+
+    // Custom event emitter methods
+    on(event: string, callback: Function) {
+        if (!this.listeners[event]) {
+            this.listeners[event] = [];
+        }
+        this.listeners[event].push(callback);
+    }
+
+    emit(event: string, ...args: any[]) {
+        const eventListeners = this.listeners[event];
+        if (eventListeners) {
+            eventListeners.forEach(listener => listener(...args));
+        }
     }
 
     get isProcessingUserInput(): boolean {

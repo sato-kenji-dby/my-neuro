@@ -1,11 +1,16 @@
-import { ipcRenderer } from 'electron';
 import type { Live2DModel } from 'pixi-live2d-display';
 import type { Application, Point } from 'pixi.js';
 
 // 声明 Live2DCubismCore 全局变量为 any，因为没有 @types 包且复杂声明可能导致问题
 declare var Live2DCubismCore: any;
 
+// 定义一个只包含我们需要的 ipcRenderer 方法的接口
+interface MinimalIpcRenderer {
+    send(channel: string, ...args: any[]): void;
+}
+
 class ModelInteractionController {
+    private ipcRenderer: MinimalIpcRenderer | null = null;
     private model: Live2DModel | null = null; // 直接使用 Live2DModel
     private app: Application | null = null;
     private interactionWidth: number = 0;
@@ -20,9 +25,10 @@ class ModelInteractionController {
     constructor() {}
 
     // 初始化模型和应用
-    init(model: Live2DModel, app: Application) { // 移除 ExtendedLive2DModel
+    init(model: Live2DModel, app: Application, ipcRenderer: MinimalIpcRenderer) {
         this.model = model;
         this.app = app;
+        this.ipcRenderer = ipcRenderer;
         this.updateInteractionArea();
         this.setupInteractivity();
     }
@@ -95,7 +101,7 @@ class ModelInteractionController {
                 this.isDragging = true;
                 this.dragOffset.x = point.x - (this.model as any).x; // 类型断言
                 this.dragOffset.y = point.y - (this.model as any).y; // 类型断言
-                ipcRenderer.send('set-ignore-mouse-events', {
+                this.ipcRenderer?.send('set-ignore-mouse-events', {
                     ignore: false
                 });
             }
@@ -118,7 +124,7 @@ class ModelInteractionController {
                 this.isDragging = false;
                 setTimeout(() => {
                     if (this.model && this.app && !(this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 添加空值检查和类型断言
-                        ipcRenderer.send('set-ignore-mouse-events', {
+                        this.ipcRenderer?.send('set-ignore-mouse-events', {
                             ignore: true,
                             options: { forward: true }
                         });
@@ -139,7 +145,7 @@ class ModelInteractionController {
                 this.chatDragOffset.x = e.clientX - chatContainer.getBoundingClientRect().left;
                 this.chatDragOffset.y = e.clientY - chatContainer.getBoundingClientRect().top;
                 e.preventDefault(); // 防止文本选中
-                ipcRenderer.send('set-ignore-mouse-events', {
+                this.ipcRenderer?.send('set-ignore-mouse-events', {
                     ignore: false
                 });
                 
@@ -161,7 +167,7 @@ class ModelInteractionController {
                 this.isDraggingChat = false;
                 setTimeout(() => {
                     if (this.model && this.app && !(this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 添加空值检查和类型断言
-                        ipcRenderer.send('set-ignore-mouse-events', {
+                        this.ipcRenderer?.send('set-ignore-mouse-events', {
                             ignore: true,
                             options: { forward: true }
                         });
@@ -192,7 +198,7 @@ class ModelInteractionController {
         // 鼠标悬停事件
         (this.model as any).on('mouseover', () => { // 类型断言
             if (this.model && this.app && (this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global)) { // 类型断言
-                ipcRenderer.send('set-ignore-mouse-events', {
+                this.ipcRenderer?.send('set-ignore-mouse-events', {
                     ignore: false
                 });
             }
@@ -201,7 +207,7 @@ class ModelInteractionController {
         // 鼠标离开事件
         (this.model as any).on('mouseout', () => { // 类型断言
             if (!this.isDragging) {
-                ipcRenderer.send('set-ignore-mouse-events', {
+                this.ipcRenderer?.send('set-ignore-mouse-events', {
                     ignore: true,
                     options: { forward: true }
                 });
