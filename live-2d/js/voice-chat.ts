@@ -414,7 +414,10 @@ ${memoryContent}`;
                             result = await this.ai.models.generateContentStream({
                                 model: this.MODEL,
                                 contents: config_pic_contents,
-                                systemInstruction: systemInstruction,
+                                config: {
+                                    systemInstruction: systemInstruction,
+                                },
+                                // systemInstruction: systemInstruction,
                             });
                         } catch (error) {
                             console.error("截图处理失败:", error);

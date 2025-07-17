@@ -2,15 +2,15 @@
     import { onMount, onDestroy } from 'svelte';
     import * as PIXI from 'pixi.js';
     import { Live2DModel } from 'pixi-live2d-display';
-    import { EnhancedTextProcessor } from '../../js/tts-processor';
-    import { ModelInteractionController } from '../../js/model-interaction';
-    import { VoiceChatInterface } from '../../js/voice-chat';
-    import { configLoader } from '../../js/config-loader';
-    import { LiveStreamModule } from '../../js/LiveStreamModule';
-    import { AutoChatModule } from '../../js/auto-chat';
-    import { EmotionMotionMapper } from '../../js/emotion-motion-mapper';
-    import { MCPClientModule } from '../../js/mcp-client-module';
-    import { ASRProcessor } from '../../js/asr-processor'; // 添加 ASRProcessor 导入
+    import { TTSProcessor } from '$js/tts-processor';
+    import { ModelInteractionController } from '$js/model-interaction';
+    import { VoiceChatInterface } from '$js/voice-chat';
+    import { configLoader } from '$js/config-loader';
+    import { LiveStreamModule } from '$js/LiveStreamModule';
+    import { AutoChatModule } from '$js/auto-chat';
+    import { EmotionMotionMapper } from '$js/emotion-motion-mapper';
+    import { MCPClientModule } from '$js/mcp-client-module';
+    import { ASRProcessor } from '$js/asr-processor'; // 添加 ASRProcessor 导入
 
     // 全局变量，用于模块间共享状态
     let isPlayingTTS = false;
@@ -20,7 +20,7 @@
     let app: PIXI.Application;
     let model: Live2DModel;
     let modelController: ModelInteractionController;
-    let ttsProcessor: EnhancedTextProcessor;
+    let ttsProcessor: TTSProcessor;
     let voiceChat: VoiceChatInterface;
     let liveStreamModule: LiveStreamModule;
     let autoChatModule: AutoChatModule;
@@ -338,11 +338,11 @@
             if (!(window as any).PIXI.live2d) {
                 console.error("PIXI.live2d is not available. Ensure Live2D libraries are loaded.");
                 // 尝试动态加载，但这通常应该在 index.html 中完成
-                // await import('../../static/live2dcubismcore.min.js');
-                // await import('../../static/live2d.min.js');
-                // await import('../../static/pixi.min.js');
-                // await import('../../static/pixi-live2d-display.min.js');
-                // await import('../../static/pixi-live2d-display-extra.min.js');
+                // await import('$static/live2dcubismcore.min.js');
+                // await import('$static/live2d.min.js');
+                // await import('$static/pixi.min.js');
+                // await import('$static/pixi-live2d-display.min.js');
+                // await import('$static/pixi-live2d-display-extra.min.js');
             }
             model = await Live2DModel.from("/static/2D/Hiyori.model3.json"); // 注意路径
             app.stage.addChild(model);
@@ -361,7 +361,7 @@
         emotionMapper = new EmotionMotionMapper(model);
 
         // 创建TTS处理器
-        ttsProcessor = new EnhancedTextProcessor(
+        ttsProcessor = new TTSProcessor(
             config.tts.url,
             (value: number) => modelController.setMouthOpenY(value),
             () => {

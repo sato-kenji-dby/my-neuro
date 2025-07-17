@@ -287,4 +287,4 @@ class AutoChatModule {
    }
 }
 
-module.exports = { AutoChatModule };
+export { AutoChatModule };
