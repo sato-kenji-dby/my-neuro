@@ -113,8 +113,9 @@ class Live2DAppCore {
         try {
             const { nickname, text } = this.barrageQueue.shift()!;
             this.logToTerminal('info', `处理队列中的弹幕: ${nickname}: ${text}`);
-            // await this.voiceChat?.handleBarrageMessage(nickname, text); // 暂时注释，待LLMService重构
-            // TODO: 调用 LLMService 处理弹幕消息
+            if (this.voiceChat) {
+                await this.voiceChat.sendToLLM(`[弹幕] ${nickname}: ${text}`);
+            }
             stateManager.isProcessingUserInput = false; // 结束处理弹幕
 
             if (this.autoChatModule) {
@@ -244,160 +245,6 @@ class Live2DAppCore {
             const success = await this.mcpClientModule.initialize();
             if (success) {
                 this.logToTerminal('info', 'MCP客户端模块初始化成功');
-                // 覆盖VoiceChat的sendToLLM方法，添加工具调用支持
-                if (this.voiceChat) {
-                    this.voiceChat.sendToLLM = async (prompt: string) => {
-                        try {
-                            stateManager.isProcessingUserInput = true; // 更新全局状态
-                            this.voiceChat?.messages.push({'role': 'user', 'content': prompt});
-                            if (this.voiceChat?.enableContextLimit) {
-                                this.voiceChat.trimMessages();
-                            }
-
-                            let messagesForAPI = JSON.parse(JSON.stringify(this.voiceChat?.messages));
-                            // 截图功能需要渲染进程支持，这里需要通过 IPC 请求渲染进程截图
-                            const needScreenshot = await this.voiceChat?.shouldTakeScreenshot(prompt);
-
-                            if (needScreenshot) {
-                                try {
-                                    this.logToTerminal('info', '需要截图');
-                                    const screenshotData = await new Promise<string>((resolve, reject) => {
-                                        this.mainWindow.webContents.send('request-screenshot');
-                                        ipcMain.once('screenshot-response', (event, base64Image: string) => {
-                                            if (base64Image) {
-                                                resolve(base64Image);
-                                            } else {
-                                                reject(new Error('截图失败'));
-                                            }
-                                        });
-                                    });
-
-                                    const lastUserMsgIndex = messagesForAPI.findIndex(
-                                        (msg: any) => msg.role === 'user' && msg.content === prompt
-                                    );
-                                    if (lastUserMsgIndex !== -1) {
-                                        messagesForAPI[lastUserMsgIndex] = {
-                                            'role': 'user',
-                                            'content': [
-                                                {'type': 'text', 'text': prompt},
-                                                {'type': 'image_url', 'image_url': {'url': `data:image/jpeg;base64,${screenshotData}`}}
-                                            ]
-                                        };
-                                    }
-                                } catch (error) {
-                                    this.logToTerminal('error', `截图处理失败: ${(error as Error).message}`);
-                                    throw new Error("截图功能出错，无法处理视觉内容");
-                                }
-                            }
-
-                            const requestBody: any = {
-                                model: this.voiceChat?.MODEL,
-                                messages: messagesForAPI,
-                                stream: false
-                            };
-
-                            if (this.mcpClientModule && this.mcpClientModule.isConnected) {
-                                const tools = this.mcpClientModule.getToolsForLLM();
-                                if (tools && tools.length > 0) {
-                                    requestBody.tools = tools;
-                                }
-                            }
-
-                            this.logToTerminal('info', `开始发送请求到LLM API: ${this.voiceChat?.API_URL}/chat/completions`);
-                            const response = await fetch(`${this.voiceChat?.API_URL}/chat/completions`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${this.voiceChat?.API_KEY}`
-                                },
-                                body: JSON.stringify(requestBody)
-                            });
-
-                            if (!response.ok) {
-                                let errorDetail = "";
-                                try {
-                                    const errorBody = await response.text();
-                                    try {
-                                        const errorJson = JSON.parse(errorBody);
-                                        errorDetail = JSON.stringify(errorJson, null, 2);
-                                    } catch (e) {
-                                        errorDetail = errorBody;
-                                    }
-                                } catch (e) {
-                                    errorDetail = "无法读取错误详情";
-                                }
-                                this.logToTerminal('error', `API错误 (${response.status} ${response.statusText}):\n${errorDetail}`);
-                                throw new Error(`API错误: ${response.status} ${response.statusText}\n详细信息: ${errorDetail}`);
-                            }
-
-                            const responseData = await response.json();
-                            const result = responseData.choices[0].message;
-                            this.logToTerminal('info', '收到LLM API响应');
-
-                            if (result.tool_calls && result.tool_calls.length > 0 && this.mcpClientModule) {
-                                this.logToTerminal('info', `检测到工具调用: ${JSON.stringify(result.tool_calls)}`);
-                                this.voiceChat?.messages.push({
-                                    'role': 'assistant',
-                                    'content': null,
-                                    'tool_calls': result.tool_calls
-                                });
-                                this.logToTerminal('info', '开始执行工具调用');
-                                const toolResult = await this.mcpClientModule.handleToolCalls(result.tool_calls);
-                                if (toolResult) {
-                                    this.logToTerminal('info', `工具调用结果: ${toolResult}`);
-                                    this.voiceChat?.messages.push({
-                                        'role': 'tool',
-                                        'content': toolResult,
-                                        'tool_call_id': result.tool_calls[0].id
-                                    });
-
-                                    this.logToTerminal('info', '发送工具结果到LLM获取最终回复');
-                                    const finalResponse = await fetch(`${this.voiceChat?.API_URL}/chat/completions`, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${this.voiceChat?.API_KEY}`
-                                        },
-                                        body: JSON.stringify({
-                                            model: this.voiceChat?.MODEL,
-                                            messages: this.voiceChat?.messages,
-                                            stream: false
-                                        })
-                                    });
-
-                                    if (!finalResponse.ok) {
-                                        throw new Error(`API错误: ${finalResponse.status} ${finalResponse.statusText}`);
-                                    }
-                                    const finalResponseData = await finalResponse.json();
-                                    const finalResult = finalResponseData.choices[0].message;
-                                    this.logToTerminal('info', '获得最终LLM回复，开始语音输出');
-                                    if (finalResult.content) {
-                                        this.voiceChat?.messages.push({'role': 'assistant', 'content': finalResult.content});
-                                        this.ttsProcessor?.reset();
-                                        this.ttsProcessor?.processTextToSpeech(finalResult.content);
-                                    }
-                                } else {
-                                    throw new Error("工具调用失败，无法完成功能扩展");
-                                }
-                            } else if (result.content) {
-                                this.voiceChat?.messages.push({'role': 'assistant', 'content': result.content});
-                                this.logToTerminal('info', 'LLM直接返回回复，开始语音输出');
-                                this.ttsProcessor?.reset();
-                                this.ttsProcessor?.processTextToSpeech(result.content);
-                            }
-                            if (this.voiceChat?.enableContextLimit) {
-                                this.voiceChat?.trimMessages();
-                            }
-                        } catch (error) {
-                            this.logToTerminal('error', `LLM处理错误: ${(error as Error).message}`);
-                            this.showSubtitle(`抱歉，出现了一个错误: ${(error as Error).message.substring(0, 50)}...`, 3000);
-                            this.voiceChat?.asrProcessor?.resumeRecording();
-                            setTimeout(() => this.hideSubtitle(), 3000);
-                        } finally {
-                            stateManager.isProcessingUserInput = false; // 更新全局状态
-                        }
-                    };
-                }
             } else {
                 this.logToTerminal('error', 'MCP客户端模块初始化失败或已禁用');
             }
@@ -431,7 +278,7 @@ class Live2DAppCore {
 
         // 初始化并启动自动对话模块
         setTimeout(() => {
-            this.autoChatModule = new AutoChatModule(this.config, this.ttsProcessor);
+            this.autoChatModule = new AutoChatModule(this.config, this.ttsProcessor!, this.llmService!, this.screenshotService!);
             this.autoChatModule.start();
             this.logToTerminal('info', '自动对话模块初始化完成');
         }, 8000);
