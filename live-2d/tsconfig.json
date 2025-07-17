@@ -1,0 +1,31 @@
+{
+  "extends": "./.svelte-kit/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "module": "es2020", // 或 "esnext"
+    "moduleResolution": "bundler",
+    "outDir": "dist-electron",
+    "verbatimModuleSyntax": false, // 禁用 verbatimModuleSyntax
+    "types": ["node", "electron"] // 确保包含 electron 类型
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.svelte",
+    "preload.ts",
+    "src/electron/**/*.ts"
+  ], // 明确包含所有 TypeScript 和 Svelte 文件，以及 Electron 主进程和预加载脚本
+  "exclude": ["node_modules", "dist-electron"] // 排除 node_modules 和输出目录
+  // Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
+  // except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
+  //
+  // If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
+  // from the referenced tsconfig.json - TypeScript does not merge them in
+}
