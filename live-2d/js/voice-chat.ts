@@ -406,7 +406,7 @@ ${memoryContent}`;
                                 
                                 createUserContent([
                                     prompt,
-                                    createPartFromUri(image.uri, image.mimeType),
+                                    createPartFromUri(image.uri!, image.mimeType!),
                                 ]),
                             ];
                             console.log(prompt);
@@ -433,37 +433,6 @@ ${memoryContent}`;
                         this.ttsProcessor.addStreamingText(chunkText);
                         console.log(chunkText);
                     }
-
-                    // if (1){
-                    //     console.log("fullResponse");
-                    //     const response = await this.ai.models.generateContent({
-                    //         model: "gemini-2.0-flash",
-                    //         contents: fullResponse,
-                    //         config: {
-                    //             systemInstruction: `You are a highly skilled and precise translation engine. Your sole task is to translate the provided Japanese text accurately and fluently into Simplified Chinese.
-                    //                 **Instructions:**
-                    //                 1.  **Output Format:** ONLY output the translated Simplified Chinese text. Do NOT include the original Japanese text in your response. Do NOT add any prefixes, suffixes, explanations, or any other text体が translated content itself.
-                    //                 2.  **Accuracy and Fluency:** Prioritize natural-sounding and contextually appropriate Simplified Chinese. Maintain the original meaning and tone of the Japanese text as closely as possible.
-                    //                 3.  **Target Audience:** Assume the translation is for a general Chinese-speaking audience.
-                    //                 4.  **Style:** If the original Japanese text has a specific style (e.g., formal, informal, emotional, technical), try to reflect that style pobreza in the Chinese translation, while ensuring naturalness.
-                    //                 5.  **Proper Nouns and Terminology:**
-                    //                     *   For common Japanese proper nouns (names of people, places, organizations) that have established Chinese translations, use the established translation.
-                    //                     *   For less common proper nouns or specific in-game/in-universe terminology, if no standard translation exists, you may use a a transliteration (音译) or a descriptive translation (意译) that is clear and consistent. If transliterating, aim for common and recognizable Chinese characters.
-                    //                     *   Do NOT provide multiple translation options for a single term within the output. Choose the best one.
-                    //                 6.  **Handling Ambiguity:** If a Japanese phrase is ambiguous, translate it based on the most likely anpassung in the given (limited) context, aiming for a generally understandable interpretation.
-                    //                 7.  **No Extra Information:** Do NOT explain your translation choices. Do NOT ask clarifying questions. Do NOT add any disclaimers. Your entire output must be the Chinese translation.
-
-                    //                 **Example Interaction (Conceptual):**
-                    //                 *   **User (Input to you, the translation engine):** こんにちは、世界！
-                    //                 *   **You (Your Output):** 你好，世界！
-                    //                 *   **User:** あの日の約束、覚えてる？
-                    //                 *   **You:** 还记得那一天的约定吗？
-                    //                 **Your only function is to receive Japanese text and output its Simplified Chinese translation. Nothing else.**`,
-                    //         },
-                    //     });
-                    //     // fullResponse = response.text;
-                    //     // console.log(fullResponse);
-                    // }
                     
                     // 截图后，上下文需要手动维护，因为 generateContentStream 是无状态的
                     if (needScreenshot){

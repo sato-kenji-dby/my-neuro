@@ -1,6 +1,22 @@
 // 自动对话模块 - 完全同步版本，支持自动截图
+declare var require: any; // For CommonJS require in Electron context
+declare var Buffer: any;  // For Buffer in Node.js context
+
 class AutoChatModule {
-   constructor(config, ttsProcessor) {
+   config: any;
+   ttsProcessor: any; // 假设 ttsProcessor 是 TTSProcessor 类的实例
+   timeoutId: number | null; // setInterval 返回 number
+   isRunning: boolean;
+   enabled: boolean;
+   idleTimeThreshold: number;
+   lastInteractionTime: number;
+   isProcessing: boolean;
+
+   autoScreenshot: boolean;
+   screenshotEnabled: boolean;
+   screenshotPath: string;
+
+   constructor(config: any, ttsProcessor: any) { // 添加参数类型
        this.config = config;
        this.ttsProcessor = ttsProcessor;
        this.timeoutId = null;
@@ -39,11 +55,11 @@ class AutoChatModule {
 
        this.timeoutId = setTimeout(() => {
            this.executeChat();
-       }, this.idleTimeThreshold);
+       }, this.idleTimeThreshold) as unknown as number; // 添加类型断言
    }
 
    // 新增：截图功能
-   async takeScreenshot() {
+   async takeScreenshot(): Promise<string> { // 添加返回类型
        try {
            const { ipcRenderer } = require('electron');
            const filepath = await ipcRenderer.invoke('take-screenshot', this.screenshotPath);
@@ -56,10 +72,10 @@ class AutoChatModule {
    }
 
    // 新增：图片转base64
-   async imageToBase64(imagePath) {
-       return new Promise((resolve, reject) => {
+   async imageToBase64(imagePath: string): Promise<string> { // 添加参数和返回类型
+       return new Promise<string>((resolve, reject) => { // 修正 Promise 类型
            const fs = require('fs');
-           fs.readFile(imagePath, (err, data) => {
+           fs.readFile(imagePath, (err: any, data: Buffer) => { // 添加类型
                if (err) {
                    console.error('读取图片失败:', err);
                    reject(err);
@@ -77,7 +93,7 @@ class AutoChatModule {
        // 检查其他活动
        if (global.isPlayingTTS || global.isProcessingBarrage || global.isProcessingUserInput) {
            console.log('有其他活动，延迟5秒重试');
-           this.timeoutId = setTimeout(() => this.executeChat(), 5000);
+           this.timeoutId = setTimeout(() => this.executeChat(), 5000) as unknown as number; // 添加类型断言
            return;
        }
 
@@ -85,7 +101,7 @@ class AutoChatModule {
        console.log('开始自动对话');
 
        try {
-           const voiceChat = global.voiceChat;
+           const voiceChat = global.voiceChat; // 假设 global.voiceChat 存在且类型正确
            if (!voiceChat) {
                console.error('voiceChat不存在');
                return;
@@ -141,7 +157,7 @@ class AutoChatModule {
            }
 
            // 准备API请求
-           const requestBody = {
+           const requestBody: { model: any; messages: any; stream: boolean; tools?: any[] } = { // 明确类型以允许 tools
                model: voiceChat.MODEL,
                messages: messagesForAPI,
                stream: false
@@ -243,8 +259,8 @@ class AutoChatModule {
    }
 
    // 等待TTS播放完成
-   waitForTTS(content) {
-       return new Promise((resolve) => {
+   waitForTTS(content: string) { // 添加类型
+       return new Promise<void>((resolve) => { // 修正 Promise 类型
            console.log('设置TTS结束回调，等待播放完成...');
 
            const originalEndCallback = this.ttsProcessor.onEndCallback;

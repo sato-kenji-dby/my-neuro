@@ -1,5 +1,15 @@
 class LiveStreamModule {
-    constructor(config) {
+    roomId: string;
+    checkInterval: number;
+    maxMessages: number;
+    apiUrl: string;
+    onNewMessage: Function | null;
+    lastCheckedTimestamp: number;
+    isRunning: boolean;
+    checkTimer: number | null;
+    messageCache: any[]; // 假设消息结构是 any，或者定义一个接口
+
+    constructor(config: any) { // 添加 config 参数类型
         // 配置参数
         this.roomId = config.roomId || '30230160'; // 默认房间ID
         this.checkInterval = config.checkInterval || 5000; // 轮询间隔，默认5秒
@@ -15,7 +25,7 @@ class LiveStreamModule {
     }
 
     // 启动直播模块
-    start() {
+    start(): boolean { // 添加返回类型
         if (this.isRunning) return false;
         
         this.isRunning = true;
@@ -24,17 +34,17 @@ class LiveStreamModule {
         // 设置定时获取
         this.checkTimer = setInterval(() => {
             this.fetchBarrage();
-        }, this.checkInterval);
+        }, this.checkInterval) as unknown as number; // 添加类型断言
         
         console.log(`直播模块已启动，监听房间: ${this.roomId}`);
         return true;
     }
 
     // 停止直播模块
-    stop() {
+    stop(): boolean { // 添加返回类型
         if (!this.isRunning) return false;
         
-        clearInterval(this.checkTimer);
+        clearInterval(this.checkTimer!); // 使用非空断言
         this.checkTimer = null;
         this.isRunning = false;
         
@@ -67,7 +77,7 @@ class LiveStreamModule {
             const messages = data.data.room;
             
             // 过滤出新消息
-            const newMessages = messages.filter(message => {
+            const newMessages = messages.filter((message: any) => { // 添加 message 类型
                 const messageTime = new Date(message.timeline).getTime() / 1000;
                 return messageTime > this.lastCheckedTimestamp;
             });
@@ -97,7 +107,7 @@ class LiveStreamModule {
     }
 
     // 获取缓存的所有消息
-    getMessages() {
+    getMessages(): any[] { // 添加返回类型
         return [...this.messageCache];
     }
 
@@ -107,7 +117,7 @@ class LiveStreamModule {
     }
 
     // 修改房间ID
-    setRoomId(roomId) {
+    setRoomId(roomId: string): boolean { // 添加 roomId 参数类型和返回类型
         if (!roomId) return false;
         
         this.roomId = roomId;
@@ -122,7 +132,7 @@ class LiveStreamModule {
     }
 
     // 修改轮询间隔
-    setCheckInterval(interval) {
+    setCheckInterval(interval: number): boolean { // 添加 interval 参数类型和返回类型
         if (!interval || interval < 1000) return false; // 至少1秒
         
         this.checkInterval = interval;
@@ -137,7 +147,7 @@ class LiveStreamModule {
     }
 
     // 获取模块当前状态
-    getStatus() {
+    getStatus(): { isRunning: boolean; roomId: string; checkInterval: number; lastCheckedTimestamp: number; messageCount: number } { // 添加返回类型
         return {
             isRunning: this.isRunning,
             roomId: this.roomId,
@@ -148,4 +158,4 @@ class LiveStreamModule {
     }
 }
 
-module.exports = { LiveStreamModule };
+export { LiveStreamModule }; // 转换为 ESM 风格

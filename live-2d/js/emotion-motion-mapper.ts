@@ -1,6 +1,13 @@
 // synchronized-emotion-motion-mapper.js - 与TTS系统同步的情绪动作映射器
 class EmotionMotionMapper {
-    constructor(model) {
+    model: any; // 声明 model 属性
+    currentMotionGroup: string;  // 声明 currentMotionGroup 属性
+    emotionMap: { [key: string]: number }; // 声明 emotionMap 属性
+    motionDescriptions: string[]; // 声明 motionDescriptions 属性
+    isPlayingMotion: boolean; // 声明 isPlayingMotion 属性
+    motionInterval: number; // 声明 motionInterval 属性
+
+    constructor(model: any) { // 添加 model 参数类型
         this.model = model;
         this.currentMotionGroup = "TapBody";  // 使用TapBody组，包含所有动作
         
@@ -14,7 +21,7 @@ class EmotionMotionMapper {
             '惊讶': 5,     // 动作5：双手放到背后，身体一抖，惊愕状（惊讶、困惑）
             '兴奋': 6,     // 动作6：双手抬至胸前快速展开，结尾笑脸（高兴兴奋）
             '赌气': 7,     // 动作7：抬眉毛，然后半闭眼赌气（赌气、可爱）
-            '悲伤': 8      // 动作8：双手放置背后，皱眉，难受（悲伤）
+            '悲伤': 8      // 动作8：双手放置背后，皱眉，难受
         };
         
         // 动作描述，用于日志
@@ -38,10 +45,10 @@ class EmotionMotionMapper {
     }
 
     // 解析文本，提取所有情绪标签和位置信息
-    parseEmotionTagsWithPosition(text) {
+    parseEmotionTagsWithPosition(text: string) { // 添加 text 参数类型
         // 使用正则表达式匹配所有情绪标签 《xxx》
         const pattern = /<([^>]+)>/g;
-        const emotions = [];
+        const emotions: { emotion: string; startIndex: number; endIndex: number; fullTag: string }[] = []; // 明确类型
         let match;
         
         while ((match = pattern.exec(text)) !== null) {
@@ -58,7 +65,7 @@ class EmotionMotionMapper {
 
     // 预处理文本，为TTS系统做准备
     // 返回: { text: 去除情绪标签的纯文本, emotionMarkers: 带位置信息的情绪标记 }
-    prepareTextForTTS(text) {
+    prepareTextForTTS(text: string) { // 添加 text 参数类型
         // 提取情绪标签和位置
         const emotionTags = this.parseEmotionTagsWithPosition(text);
         
@@ -80,7 +87,7 @@ class EmotionMotionMapper {
         }
         
         // 创建情绪标记数组，转换为基于字符位置的标记
-        const emotionMarkers = [];
+        const emotionMarkers: { position: number; emotion: string; motionIndex: number }[] = []; // 明确类型
         let offset = 0;
         
         for (const tag of emotionTags) {
@@ -110,7 +117,7 @@ class EmotionMotionMapper {
     // 根据文字显示位置触发情绪动作
     // position: 当前字幕显示到的字符位置
     // textLength: 总字符长度
-    triggerEmotionByTextPosition(position, textLength, emotionMarkers) {
+    triggerEmotionByTextPosition(position: number, textLength: number, emotionMarkers: { position: number; emotion: string; motionIndex: number }[]) { // 明确类型
         if (!emotionMarkers || emotionMarkers.length === 0) return;
         
         // 找到当前位置应该触发的情绪
@@ -136,7 +143,7 @@ class EmotionMotionMapper {
     }
 
     // 为了向后兼容，保留原有接口，但修改内部实现
-    triggerMotionByEmotion(text) {
+    triggerMotionByEmotion(text: string) { // 添加 text 参数类型
         // 提取第一个情绪标签
         const match = text.match(/<([^>]+)>/);
         if (match && match[1]) {
@@ -154,7 +161,7 @@ class EmotionMotionMapper {
     }
     
     // 播放指定索引的动作
-    playMotion(index) {
+    playMotion(index: number) { // 添加 index 参数类型
         if (!this.model) return;
         
         try {
@@ -196,4 +203,4 @@ class EmotionMotionMapper {
     }
 }
 
-module.exports = { EmotionMotionMapper };
+export { EmotionMotionMapper };

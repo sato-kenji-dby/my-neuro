@@ -1,6 +1,54 @@
 // 改进的文本处理器 - 与情绪动作同步
+import { GoogleGenAI } from '@google/genai'; // 添加此行
+
+declare function showSubtitle(text: string): void; // 添加此行
+declare function hideSubtitle(): void;     // 添加此行
+
 class EnhancedTextProcessor {
-   constructor(ttsUrl, onAudioDataCallback, onStartCallback, onEndCallback, config = null) {
+   config: any;
+   ttsUrl: string;
+   onAudioDataCallback: Function;
+   onStartCallback: Function;
+   onEndCallback: Function;
+   language: string;
+
+   textSegmentQueue: string[];
+   audioDataQueue: { audio: Blob, text: string }[];
+
+   isProcessing: boolean;
+   isPlaying: boolean;
+   shouldStop: boolean;
+
+   audioContext: AudioContext | null;
+   analyser: AnalyserNode | null;
+   dataArray: Uint8Array | null;
+   currentAudio: HTMLAudioElement | null;
+
+   punctuations: string[];
+
+   currentFullText: string;
+   pendingSegment: string;
+
+   llmFullResponse: string;
+   displayedText: string;
+   currentSegmentText: string;
+   syncTextQueue: string[];
+
+   emotionMapper: any; // 假设 EmotionMotionMapper 是一个类或接口
+   currentEmotionMarkers: any[];
+
+   _textAnimInterval: number | null;
+   _renderFrameId: number | null;
+
+   // 这些属性在 translate 方法中被初始化，也需要在这里声明
+   API_KEY: string;
+   API_URL: string;
+   MODEL: string;
+   provider: string;
+   ai: any;
+   chat: any; // 尽管可能被移除，但为了避免类型错误先声明
+
+   constructor(ttsUrl: string, onAudioDataCallback: Function, onStartCallback: Function, onEndCallback: Function, config: any = null) {
        this.config = config || {};
        this.ttsUrl = ttsUrl;
        this.onAudioDataCallback = onAudioDataCallback;
@@ -52,14 +100,14 @@ class EnhancedTextProcessor {
    }
 
    // 设置情绪动作映射器
-   setEmotionMapper(emotionMapper) {
+   setEmotionMapper(emotionMapper: any) { // 添加类型
        this.emotionMapper = emotionMapper;
    }
 
    // 初始化音频上下文
    async initAudioContext() {
        if (!this.audioContext) {
-           this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+           this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)(); // 修正 webkitAudioContext 类型
            this.analyser = this.audioContext.createAnalyser();
            this.analyser.fftSize = 256;
            this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
@@ -78,15 +126,15 @@ class EnhancedTextProcessor {
 
                try {
                    // 将文本段添加到同步队列，用于后续文本动画显示
-                   this.syncTextQueue.push(segment);
+                   this.syncTextQueue.push(segment as string); // 确保 segment 是 string
 
                    // 处理单个文本段
-                   const audioData = await this.convertTextToSpeech(segment);
+                   const audioData = await this.convertTextToSpeech(segment as string); // 确保 segment 是 string
                    if (audioData) {
                        // 将音频数据和对应的文本作为一个包加入队列
                        this.audioDataQueue.push({
                            audio: audioData,
-                           text: segment
+                           text: segment as string
                        });
                    }
                } catch (error) {
@@ -114,12 +162,12 @@ class EnhancedTextProcessor {
                const audioPackage = this.audioDataQueue.shift();
 
                // 设置当前段落的文本，用于文字动画
-               this.currentSegmentText = audioPackage.text;
+               this.currentSegmentText = audioPackage!.text; // 使用非空断言
                 //翻译
                 this.currentSegmentText = await this.translate(this.currentSegmentText);
 
                // 播放音频并同步显示文本
-               await this.playAudioWithTextSync(audioPackage.audio);
+               await this.playAudioWithTextSync(audioPackage!.audio); // 使用非空断言
            }
 
            // 继续检查队列
@@ -131,7 +179,7 @@ class EnhancedTextProcessor {
    }
 
    // 将文本转换为语音
-   async convertTextToSpeech(text) {
+   async convertTextToSpeech(text: string) { // 添加类型
        try {
            // 移除括号内容和星号包裹的内容用于TTS
            const textForTTS = text
@@ -161,25 +209,25 @@ class EnhancedTextProcessor {
        }
    }
 
-     async translate(text){
+     async translate(text: string){ // 添加类型
         // 翻译文本
         if (this.config.translator.enabled){
             // LLM配置
-            const {GoogleGenAI} = require("@google/genai");
+            // const {GoogleGenAI} = require("@google/genai"); // 移除或替换为 import
             this.API_KEY = this.config.llm.api_key;
             this.API_URL = this.config.llm.api_url;
             this.MODEL = this.config.llm.model;
             this.provider = this.config.llm.provider;
-            if (this.provider === 'google_aistudio')
+            if (this.provider === 'google_aistudio') { // 添加大括号
                 this.ai = new GoogleGenAI({ apiKey: this.API_KEY });
-                this.chat = this.ai.chats.create({
-                model: this.MODEL,
-                history: [
-                    ],
-                });
+                // this.chat = this.ai.chats.create({ // 移除此行，因为 chat 未被使用
+                // model: this.MODEL,
+                // history: [],
+                // });
+            }
 
-            // process.stdout.write("fullResponse");
-            process.stdout.write("\nOriginal:" + text);
+            // process.stdout.write("fullResponse"); // 替换为 console.log
+            console.log("\nOriginal:" + text);
             const response = await this.ai.models.generateContent({
                     model: this.MODEL,
                     contents: text,
@@ -189,16 +237,16 @@ class EnhancedTextProcessor {
                 });
                 text = response.text;
                 // fullResponse = response.text;
-                process.stdout.write("\nTranslated:" + text);
+                console.log("\nTranslated:" + text); // 替换为 console.log
             }
         return text
     }
    // 播放单个音频片段，同时实现文本动画同步和情绪动作同步
-   async playAudioWithTextSync(audioBlob) {
+   async playAudioWithTextSync(audioBlob: Blob) { // 添加类型
        if (!audioBlob) return;
 
        await this.initAudioContext();
-        return new Promise(async (resolve) => {
+        return new Promise<void>(async (resolve) => { // 修正 Promise 类型
            if (this.shouldStop) {
                resolve();
                return;
@@ -215,13 +263,13 @@ class EnhancedTextProcessor {
            }
 
            // 设置音频分析
-           const source = this.audioContext.createMediaElementSource(audio);
-           source.connect(this.analyser);
-           this.analyser.connect(this.audioContext.destination);
+           const source = this.audioContext!.createMediaElementSource(audio); // 使用非空断言
+           source.connect(this.analyser!); // 使用非空断言
+           this.analyser!.connect(this.audioContext!.destination); // 使用非空断言
 
            // 预处理当前段落的文本，提取情绪标记
            let segmentText = this.currentSegmentText;
-           let emotionMarkers = [];
+           let emotionMarkers: any[] = []; // 添加类型
 
            // 如果存在情绪映射器，处理情绪标签
            if (this.emotionMapper) {
@@ -241,17 +289,17 @@ class EnhancedTextProcessor {
            let charDisplayIndex = 0;
 
            // 动态显示文本的计时器
-           let textAnimInterval = null;
+           let textAnimInterval: number | null = null; // 添加类型
 
            // 更新AI的嘴巴动作
            const updateMouth = () => {
                if (this.shouldStop || !this.currentAudio) return;
 
-               this.analyser.getByteFrequencyData(this.dataArray);
-               const sampleCount = this.dataArray.length / 2;
+               this.analyser!.getByteFrequencyData(this.dataArray!); // 使用非空断言
+               const sampleCount = this.dataArray!.length / 2; // 使用非空断言
                let sum = 0;
                for (let i = 0; i < sampleCount; i++) {
-                   sum += this.dataArray[i];
+                   sum += this.dataArray![i]; // 使用非空断言
                }
                const average = sum / sampleCount;
 
@@ -306,11 +354,11 @@ class EnhancedTextProcessor {
                        if (typeof showSubtitle === 'function') {
                            showSubtitle(`Seraphim: ${currentDisplay}`);
                            // 确保滚动到底部
-                           document.getElementById('subtitle-container').scrollTop =
-                               document.getElementById('subtitle-container').scrollHeight;
+                           document.getElementById('subtitle-container')!.scrollTop = // 使用非空断言
+                               document.getElementById('subtitle-container')!.scrollHeight; // 使用非空断言
                        }
                    }
-               }, charInterval);
+               }, charInterval) as unknown as number;
 
                // 保存计时器引用以便在中断时清除
                this._textAnimInterval = textAnimInterval;
@@ -423,7 +471,7 @@ class EnhancedTextProcessor {
    }
 
    // 添加流式文本，实时进行分段处理
-   addStreamingText(text) {
+   addStreamingText(text: string) { // 添加类型
        if (this.shouldStop) return;
 
        // 更新LLM的完整响应文本
@@ -468,7 +516,7 @@ class EnhancedTextProcessor {
    }
 
    // 处理完整文本（兼容旧的调用方式）
-   async processTextToSpeech(text) {
+   async processTextToSpeech(text: string) { // 添加类型
        if (!text.trim()) return;
 
        this.reset();
@@ -628,10 +676,10 @@ class EnhancedTextProcessor {
    }
 
    // 判断是否正在播放
-   isPlaying() {
+   getIsPlayingStatus() { // 重命名方法以避免与属性冲突
        return this.isPlaying || this.isProcessing || this.textSegmentQueue.length > 0 || this.audioDataQueue.length > 0;
    }
 }
 
 // 导出TTS处理器类
-module.exports = { EnhancedTextProcessor };
+export { EnhancedTextProcessor as TTSProcessor};

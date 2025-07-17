@@ -1,8 +1,12 @@
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import * as fs from 'fs'; // 转换为 ESM 风格
+import * as path from 'path'; // 转换为 ESM 风格
+import * as os from 'os'; // 转换为 ESM 风格
 
 class ConfigLoader {
+    config: any; // 声明 config 属性
+    configPath: string; // 声明 configPath 属性
+    defaultConfigPath: string; // 声明 defaultConfigPath 属性
+
     constructor() {
         this.config = null;
         this.configPath = path.join(__dirname, '..', 'config.json');
@@ -10,7 +14,7 @@ class ConfigLoader {
     }
 
     // 修改后的加载配置文件方法，如果格式不对就直接报错
-    load() {
+    load(): any { // 添加返回类型
         try {
             // 直接读取配置文件
             const configData = fs.readFileSync(this.configPath, 'utf8');
@@ -18,7 +22,7 @@ class ConfigLoader {
             try {
                 // 尝试解析 JSON
                 this.config = JSON.parse(configData);
-            } catch (parseError) {
+            } catch (parseError: any) { // 添加 parseError 类型
                 // JSON 解析失败，说明格式不对
                 throw new Error(`JSON格式错误: ${parseError.message}`);
             }
@@ -29,7 +33,7 @@ class ConfigLoader {
             this.processSpecialPaths();
             
             return this.config;
-        } catch (error) {
+        } catch (error: any) { // 添加 error 类型
             console.error('配置文件读取失败:', error);
             throw error; // 直接抛出错误，不提供默认配置
         }
@@ -38,12 +42,12 @@ class ConfigLoader {
     // 处理特殊路径，比如将 ~ 展开为用户主目录
     processSpecialPaths() {
         if (this.config.vision && this.config.vision.screenshot_path) {
-            this.config.vision.screenshot_path = this.config.vision.screenshot_path.replace(/^~/, os.homedir());
+            this.config.vision.screenshot.path = this.config.vision.screenshot_path.replace(/^~/, os.homedir());
         }
     }
 
     // 保存配置
-    save(config = null) {
+    save(config: any = null): boolean { // 添加 config 参数类型和返回类型
         try {
             const configToSave = config || this.config;
             if (!configToSave) {
@@ -70,4 +74,4 @@ class ConfigLoader {
 
 // 创建并导出单例
 const configLoader = new ConfigLoader();
-module.exports = { configLoader };
+export { configLoader }; // 转换为 ESM 风格

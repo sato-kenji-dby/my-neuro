@@ -1,6 +1,16 @@
 // MCP客户端模块 - 集成到AI桌宠系统
 class MCPClientModule {
-    constructor(config, ttsProcessor, emotionMapper) {
+    config: any;
+    ttsProcessor: any;
+    emotionMapper: any;
+    isEnabled: boolean;
+    serverUrl: string;
+    isConnected: boolean;
+    availableTools: any[];
+    sessionId: string;
+    serverInfo: any;
+
+    constructor(config: any, ttsProcessor: any, emotionMapper: any) { // 添加参数类型
         // 保存配置和依赖项
         this.config = config.mcp || {};
         this.ttsProcessor = ttsProcessor;
@@ -17,7 +27,7 @@ class MCPClientModule {
     }
     
     // 初始化模块
-    async initialize() {
+    async initialize(): Promise<boolean> { // 添加返回类型
         if (!this.isEnabled) {
             console.log('MCP功能已禁用，不进行初始化');
             return false;
@@ -28,7 +38,7 @@ class MCPClientModule {
     }
     
     // 发现可用的MCP工具
-    async discoverMCPTools() {
+    async discoverMCPTools(): Promise<boolean> { // 添加返回类型
         try {
             console.log(`尝试连接MCP服务器: ${this.serverUrl}/mcp/v1/discover`);
             
@@ -54,7 +64,7 @@ class MCPClientModule {
             this.isConnected = true;
             
             console.log(`已连接到MCP服务器: ${this.serverInfo.name}`);
-            console.log(`可用工具(${this.availableTools.length}): ${this.availableTools.map(t => t.name).join(', ')}`);
+            console.log(`可用工具(${this.availableTools.length}): ${this.availableTools.map((t: any) => t.name).join(', ')}`); // 添加 t 类型
             
             return true;
         } catch (error) {
@@ -65,12 +75,12 @@ class MCPClientModule {
     }
     
     // 获取工具列表，用于传递给LLM
-    getToolsForLLM() {
+    getToolsForLLM(): any[] { // 添加返回类型
         if (!this.isEnabled || !this.isConnected || this.availableTools.length === 0) {
             return [];
         }
         
-        return this.availableTools.map(tool => ({
+        return this.availableTools.map((tool: any) => ({ // 添加 tool 类型
             type: "function",
             function: {
                 name: tool.name,
@@ -81,7 +91,7 @@ class MCPClientModule {
     }
     
     // 处理LLM返回的工具调用
-    async handleToolCalls(toolCalls) {
+    async handleToolCalls(toolCalls: any[]): Promise<any> { // 添加 toolCalls 参数类型和返回类型
         if (!this.isEnabled || !this.isConnected || !toolCalls || toolCalls.length === 0) {
             return null;
         }
@@ -90,7 +100,7 @@ class MCPClientModule {
         const functionName = toolCall.function.name;
         
         // 解析参数
-        let parameters;
+        let parameters: any; // 添加 parameters 类型
         try {
             parameters = typeof toolCall.function.arguments === 'string'
                 ? JSON.parse(toolCall.function.arguments)
@@ -105,14 +115,14 @@ class MCPClientModule {
     }
     
     // 调用MCP工具
-    async invokeFunction(functionName, parameters) {
+    async invokeFunction(functionName: string, parameters: any): Promise<any> { // 添加参数类型和返回类型
         if (!this.isEnabled || !this.isConnected) {
             console.error('MCP功能未启用或未连接到服务器');
             return null;
         }
         
         // 查找工具是否存在
-        const tool = this.availableTools.find(t => t.name === functionName);
+        const tool = this.availableTools.find((t: any) => t.name === functionName); // 添加 t 类型
         if (!tool) {
             console.error(`未找到MCP工具: ${functionName}`);
             return null;
@@ -149,7 +159,7 @@ class MCPClientModule {
     }
     
     // 生成唯一会话ID
-    generateSessionId() {
+    generateSessionId(): string { // 添加返回类型
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             const r = Math.random() * 16 | 0;
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -164,5 +174,4 @@ class MCPClientModule {
     }
 }
 
-// 导出模块
-module.exports = { MCPClientModule };
+export { MCPClientModule }; // 转换为 ESM 风格
