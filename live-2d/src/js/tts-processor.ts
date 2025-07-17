@@ -52,24 +52,14 @@ class TTSProcessor {
                 throw new Error(`TTS request failed: ${response.status}`);
             }
 
-            const audioBlob = await response.blob();
-            const audioDataUrl = await this.blobToDataURL(audioBlob);
+            const audioArrayBuffer = await response.arrayBuffer();
 
-            // Send audio data and text to renderer process for playback
-            this.ipcSender('play-audio', { audioDataUrl, text: segment });
+            // Send audio data (ArrayBuffer) and text to renderer process for playback
+            this.ipcSender('play-audio', { audioArrayBuffer, text: segment });
 
         } catch (error) {
             console.error('TTS segment processing error:', error);
         }
-    }
-
-    private blobToDataURL(blob: Blob): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
     }
 
     public addStreamingText(text: string) {

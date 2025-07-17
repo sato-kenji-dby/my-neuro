@@ -34,14 +34,14 @@
     }
 
     // 更新鼠标穿透状态
-    function updateMouseIgnore() {
-        if (!model || !app) return;
-        const shouldIgnore = !model.containsPoint(app.renderer.plugins.interaction.mouse.global);
-        window.ipcRenderer.send('set-ignore-mouse-events', {
-            ignore: shouldIgnore,
-            options: { forward: true }
-        });
-    }
+    // function updateMouseIgnore() {
+    //     if (!model || !app) return;
+    //     const shouldIgnore = !model.containsPoint(app.renderer.plugins.interaction.mouse.global);
+    //     window.ipcRenderer.send('set-ignore-mouse-events', {
+    //         ignore: shouldIgnore,
+    //         options: { forward: true }
+    //     });
+    // }
 
     onMount(async () => {
         const ipcRenderer = window.ipcRenderer;
@@ -100,8 +100,8 @@
             asrProcessor?.resumeRecording();
         });
 
-        ipcRenderer.on('play-audio', (_, { audioDataUrl, text }) => {
-            audioPlayer?.play(audioDataUrl, text);
+        ipcRenderer.on('play-audio', (_, { audioArrayBuffer, text }) => {
+            audioPlayer?.play(audioArrayBuffer, text);
         });
 
         ipcRenderer.on('interrupt-playback', () => {
@@ -176,8 +176,8 @@
             ipcRenderer.send('log-to-main', { level: 'error', message: `初始化 ASR 错误: ${(error as Error).message}` });
         }
 
-        // 鼠标事件监听
-        document.addEventListener('mousemove', updateMouseIgnore);
+        // // 鼠标事件监听
+        // document.addEventListener('mousemove', updateMouseIgnore);
 
         // 聊天框事件监听
         const textChatContainer = document.getElementById('text-chat-container');
@@ -218,7 +218,7 @@
             if (asrProcessor) {
                 asrProcessor.stopRecording();
             }
-            document.removeEventListener('mousemove', updateMouseIgnore);
+            // document.removeEventListener('mousemove', updateMouseIgnore);
             
             // 移除所有监听器以防内存泄漏
             window.ipcRenderer.removeAllListeners('pause-asr');

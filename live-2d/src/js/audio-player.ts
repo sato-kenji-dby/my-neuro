@@ -41,7 +41,7 @@ class AudioPlayer {
         }
     }
 
-    public async play(audioDataUrl: string, text: string) {
+    public async play(audioArrayBuffer: ArrayBuffer, text: string) {
         await this.initAudioContext();
         this.shouldStop = false;
 
@@ -52,7 +52,11 @@ class AudioPlayer {
         this.onStart();
         this.showSubtitle(`Seraphim: ${text}`);
 
-        this.currentAudio = new Audio(audioDataUrl);
+        // 将 ArrayBuffer 转换为 Blob
+        const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        this.currentAudio = new Audio(audioUrl);
         const source = this.audioContext!.createMediaElementSource(this.currentAudio);
         source.connect(this.analyser!);
         this.analyser!.connect(this.audioContext!.destination);
@@ -75,11 +79,13 @@ class AudioPlayer {
             this.onEnd();
             setTimeout(() => this.hideSubtitle(), 1000);
             this.currentAudio = null;
+            URL.revokeObjectURL(audioUrl); // 释放 Blob URL
         };
 
         this.currentAudio.play().catch(e => {
             console.error("Audio playback failed:", e);
             this.onEnd();
+            URL.revokeObjectURL(audioUrl); // 释放 Blob URL
         });
     }
 

@@ -39,7 +39,12 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true, // Set to true for security
     },
+    transparent: false, // 禁用透明度
+    frame: true, // 显示窗口边框
   });
+  // 强制禁用鼠标穿透
+  mainWindow.setIgnoreMouseEvents(false);
+  console.log('[Main Process] 鼠标穿透已在窗口创建时强制禁用。');
 
   const startUrl = process.env.ELECTRON_START_URL || 'app:///index.html'; // Changed to app:///index.html
 
