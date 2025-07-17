@@ -3,8 +3,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // 导入 Live2D 相关的模块
-import * as PIXI from 'pixi.js';
-import { Live2DModel } from 'pixi-live2d-display';
 import { TTSProcessor } from '$js/tts-processor';
 import { ModelInteractionController } from '$js/model-interaction';
 import { VoiceChatInterface } from '$js/voice-chat'; // 导入 VoiceChatInterface
@@ -28,9 +26,6 @@ let live2dAppCore: Live2DAppCore;
 class Live2DAppCore {
     private mainWindow: BrowserWindow;
     private config: any;
-
-    public modelController: ModelInteractionController | undefined;
-    public emotionMapper: EmotionMotionMapper | undefined;
 
     public ttsProcessor: TTSProcessor | undefined;
     public voiceChat: VoiceChatInterface | undefined;
@@ -241,7 +236,7 @@ class Live2DAppCore {
 
         // 初始化MCP客户端模块
         if (this.config.mcp && this.config.mcp.enabled) {
-            this.mcpClientModule = new MCPClientModule(this.config, this.ttsProcessor, this.emotionMapper);
+            this.mcpClientModule = new MCPClientModule(this.config, this.ttsProcessor);
             const success = await this.mcpClientModule.initialize();
             if (success) {
                 this.logToTerminal('info', 'MCP客户端模块初始化成功');

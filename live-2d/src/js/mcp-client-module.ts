@@ -2,7 +2,6 @@
 class MCPClientModule {
     config: any;
     ttsProcessor: any;
-    emotionMapper: any;
     isEnabled: boolean;
     serverUrl: string;
     isConnected: boolean;
@@ -10,11 +9,10 @@ class MCPClientModule {
     sessionId: string;
     serverInfo: any;
 
-    constructor(config: any, ttsProcessor: any, emotionMapper: any) { // 添加参数类型
+    constructor(config: any, ttsProcessor: any) { // 添加参数类型
         // 保存配置和依赖项
         this.config = config.mcp || {};
         this.ttsProcessor = ttsProcessor;
-        this.emotionMapper = emotionMapper;
         this.isEnabled = this.config.enabled || false;
         this.serverUrl = this.config.server_url || 'http://localhost:3000';
         

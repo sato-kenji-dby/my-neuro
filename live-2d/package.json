@@ -48,7 +48,7 @@
     "build": "npm run clean && npm run build:frontend && npm run build:electron",
     "dev:frontend": "npx vite dev",
     "watch:electron": "vite build --config vite.main.config.ts --watch",
-    "start:electron:dev": "cross-env ELECTRON_START_URL=http://localhost:5173 npx nodemon",
+    "start:electron:dev": "cross-env ELECTRON_START_URL=http://localhost:5173 electron electron.cjs",
     "dev:prepare": "npm run clean",
     "dev:run": "concurrently --raw \"npm:dev:frontend\" \"npm:watch:electron\" \"npm:start:electron:dev\"",
     "dev": "npm run dev:prepare && npm run dev:run",
