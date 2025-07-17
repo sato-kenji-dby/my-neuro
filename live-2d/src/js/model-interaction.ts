@@ -172,15 +172,19 @@ class ModelInteractionController {
     }
 
     // 初始化模型位置和大小
-    setupInitialModelProperties(scaleMultiplier = 2.3) {
+    setupInitialModelProperties(scaleMultiplier = 1.0) { // 调整默认缩放乘数，使其更容易看到
         if (!this.model || !this.app) return;
         
-        const scaleX = (window.innerWidth * scaleMultiplier) / (this.model as any).width; // 类型断言
-        const scaleY = (window.innerHeight * scaleMultiplier) / (this.model as any).height; // 类型断言
-        (this.model as any).scale.set(Math.min(scaleX, scaleY)); // 类型断言
+        // 计算一个合适的初始缩放，使模型可见
+        const initialScale = Math.min(
+            (window.innerWidth * scaleMultiplier) / (this.model as any).width,
+            (window.innerHeight * scaleMultiplier) / (this.model as any).height
+        );
+        (this.model as any).scale.set(initialScale); // 类型断言
 
-        (this.model as any).y = window.innerHeight * 0.8; // 类型断言
-        (this.model as any).x = window.innerWidth * 1.35; // 类型断言
+        // 将模型放置在屏幕中央
+        (this.model as any).x = (window.innerWidth - (this.model as any).width * initialScale) / 2; // 类型断言
+        (this.model as any).y = (window.innerHeight - (this.model as any).height * initialScale) / 2; // 类型断言
         this.updateInteractionArea();
     }
 }
