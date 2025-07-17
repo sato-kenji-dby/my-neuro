@@ -248,7 +248,7 @@ class ASRProcessor {
         this.continuousBuffer = this.continuousBuffer.slice(-this.PRE_RECORD_SAMPLES);
     }
 
-    float32ToWav(samples) {
+    float32ToWav(samples: Float32Array): Blob {
         const buffer = new ArrayBuffer(44 + samples.length * 2);
         const view = new DataView(buffer);
         
@@ -271,20 +271,20 @@ class ASRProcessor {
         return new Blob([buffer], { type: 'audio/wav' });
     }
 
-    writeString(view, offset, string) {
+    writeString(view: DataView, offset: number, string: string): void {
         for (let i = 0; i < string.length; i++) {
             view.setUint8(offset + i, string.charCodeAt(i));
         }
     }
 
-    floatTo16BitPCM(view, offset, input) {
+    floatTo16BitPCM(view: DataView, offset: number, input: Float32Array): void {
         for (let i = 0; i < input.length; i++, offset += 2) {
             const s = Math.max(-1, Math.min(1, input[i]));
             view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
         }
     }
 
-    async processRecording(audioBlob) {
+    async processRecording(audioBlob: Blob): Promise<string | null> {
         const formData = new FormData();
         formData.append('file', audioBlob, 'recording.wav');
         
@@ -342,7 +342,7 @@ class ASRProcessor {
     }
 
     // 设置语音识别完成的回调函数
-    setOnSpeechRecognized(callback) {
+    setOnSpeechRecognized(callback: (text: string) => void): void {
         this.onSpeechRecognized = callback;
     }
 }

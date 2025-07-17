@@ -41,33 +41,35 @@ interface VoiceChatConfig {
 
 // 定义消息接口
 interface Message {
-    role: 'system' | 'user' | 'assistant';
-    content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
+    role: 'system' | 'user' | 'assistant' | 'tool'; // 添加 'tool' 角色
+    content: string | null | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
+    tool_calls?: any[]; // 添加 tool_calls
+    tool_call_id?: string; // 添加 tool_call_id
 }
 
 class VoiceChatInterface {
     private config: VoiceChatConfig;
-    private API_KEY: string;
-    private API_URL: string;
-    private MODEL: string;
-    private provider: string;
+    public API_KEY: string; // 改为 public
+    public API_URL: string; // 改为 public
+    public MODEL: string; // 改为 public
+    public provider: string; // 改为 public
     private ai: GoogleGenAI | null = null;
     private chat: any = null; // GoogleGenerativeAI.ChatSession 类型，暂时用 any
     private ttsProcessor: TTSProcessor;
     private showSubtitle: (text: string, duration: number) => void;
     private hideSubtitle: () => void;
-    private asrProcessor: ASRProcessor;
+    public asrProcessor: ASRProcessor; // 改为 public
     private maxContextMessages: number;
-    private enableContextLimit: boolean;
+    public enableContextLimit: boolean; // 改为 public
     private screenshotEnabled: boolean;
     private screenshotPath: string;
     private visionCheckUrl: string;
     private autoScreenshot: boolean;
     private memoryFilePath: string;
     private memoryCheckUrl: string;
-    private model: Live2DModel | null = null;
-    private emotionMapper: EmotionMotionMapper | null = null;
-    private messages: Message[];
+    public model: Live2DModel | null = null; // 改为 public
+    public emotionMapper: EmotionMotionMapper | null = null; // 改为 public
+    public messages: Message[]; // 改为 public
     private asrLocked: boolean = false; // 用于 handleTextMessage
 
     constructor(
@@ -123,16 +125,16 @@ class VoiceChatInterface {
             const sessionStart = `=== 新会话开始：${currentDate} ===\n`;
             fs.appendFileSync(dialogLogPath, sessionStart, 'utf8');
             console.log('对话记录文件已准备好');
-        } catch (error) {
-            console.error('准备对话记录文件失败:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('准备对话记录文件失败:', (error as Error).message);
         }
 
         let memoryContent = "";
         try {
             memoryContent = fs.readFileSync(this.memoryFilePath, 'utf8');
             console.log('成功读取记忆库内容');
-        } catch (error) {
-            console.error('读取记忆库文件失败:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('读取记忆库文件失败:', (error as Error).message);
             memoryContent = "无法读取记忆库内容";
         }
 
@@ -178,8 +180,8 @@ ${memoryContent}`;
                             newContent,
                             'utf8'
                         );
-                    } catch (error) {
-                        console.error('保存对话记录失败:', error);
+                    } catch (error: unknown) { // 明确指定 error 类型为 unknown
+                        console.error('保存对话记录失败:', (error as Error).message);
                     }
                 }
             }
@@ -212,8 +214,8 @@ ${memoryContent}`;
             const data = await response.json();
             console.log('记忆检查结果:', data);
             return data["需要检索"] === "是";
-        } catch (error) {
-            console.error('记忆检查错误:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('记忆检查错误:', (error as Error).message);
             return false;
         }
     }
@@ -227,8 +229,8 @@ ${memoryContent}`;
             fs.appendFileSync(this.memoryFilePath, memoryEntry, 'utf8');
             console.log('已保存到记忆文件:', text);
             return true;
-        } catch (error) {
-            console.error('保存记忆失败:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('保存记忆失败:', (error as Error).message);
             return false;
         }
     }
@@ -291,8 +293,8 @@ ${memoryContent}`;
             const filepath = await ipcRenderer.invoke('take-screenshot', this.screenshotPath);
             console.log('截图已保存:', filepath);
             return filepath;
-        } catch (error) {
-            console.error('截图错误:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('截图错误:', (error as Error).message);
             throw error;
         }
     }
@@ -334,8 +336,8 @@ ${memoryContent}`;
             console.log(`截图判断结果: ${result}`);
 
             return result === "是";
-        } catch (error) {
-            console.error('判断截图错误:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('判断截图错误:', (error as Error).message);
             return false;
         }
     }
@@ -419,8 +421,8 @@ ${memoryContent}`;
                                 },
                                 // systemInstruction: systemInstruction,
                             });
-                        } catch (error) {
-                            console.error("截图处理失败:", error);
+                        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+                            console.error("截图处理失败:", (error as Error).message);
                             // 如果截图失败，使用纯文本消息
                             if (!this.chat) throw new Error("Google AI Chat not initialized for text message.");
                             result = await this.chat.sendMessageStream(prompt);
@@ -452,9 +454,9 @@ ${memoryContent}`;
                     if (this.enableContextLimit) {
                         this.trimMessages();
                     }
-                } catch (error: any) {
-                    console.error("Google AI Studio error:", error);
-                    this.showSubtitle(error.message, 3000);
+                } catch (error: unknown) { // 明确指定 error 类型为 unknown
+                    console.error("Google AI Studio error:", (error as Error).message);
+                    this.showSubtitle((error as Error).message, 3000);
                     this.asrProcessor.resumeRecording();
                     setTimeout(() => this.hideSubtitle(), 3000);
                 }
@@ -470,7 +472,7 @@ ${memoryContent}`;
                         // 创建包含图片的消息用于API请求
                         // 找到最后一条用户消息替换为多模态消息
                         const lastUserMsgIndex = messagesForAPI.findIndex(
-                            msg => msg.role === 'user' && msg.content === prompt
+                            (msg: Message) => msg.role === 'user' && msg.content === prompt
                         );
 
                         if (lastUserMsgIndex !== -1) {
@@ -482,8 +484,8 @@ ${memoryContent}`;
                                 ]
                             };
                         }
-                    } catch (error) {
-                        console.error("截图处理失败:", error);
+                    } catch (error: unknown) { // 明确指定 error 类型为 unknown
+                        console.error("截图处理失败:", (error as Error).message);
                         // 如果截图失败，使用纯文本消息，已经设置好了
                     }
                 }
@@ -563,8 +565,8 @@ ${memoryContent}`;
                                 // 将新的文本片段传递给TTS处理器进行实时处理
                                 this.ttsProcessor.addStreamingText(newContent);
                             }
-                        } catch (e) {
-                            console.error('解析响应错误:', e);
+                        } catch (e: unknown) { // 明确指定 error 类型为 unknown
+                            console.error('解析响应错误:', (e as Error).message);
                         }
                     }
                 }
@@ -580,25 +582,23 @@ ${memoryContent}`;
                 }
             }
             }
-        } catch (error) {
-            console.error("LLM处理错误:", error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error("LLM处理错误:", (error as Error).message);
 
             // 检查错误类型，显示具体错误信息
             let errorMessage = "抱歉，出现了一个错误";
 
-            if (error.message.includes("API密钥验证失败")) {
+            if ((error as Error).message.includes("API密钥验证失败")) {
                 errorMessage = "API密钥错误，请检查配置";
-            } else if (error.message.includes("API访问被禁止")) {
+            } else if ((error as Error).message.includes("API访问被禁止")) {
                 errorMessage = "API访问受限，请联系支持";
-            } else if (error.message.includes("API接口未找到")) {
+            } else if ((error as Error).message.includes("API接口未找到")) {
                 errorMessage = "无效的API地址，请检查配置";
-            } else if (error.message.includes("请求过于频繁")) {
+            } else if ((error as Error).message.includes("请求过于频繁")) {
                 errorMessage = "请求频率超限，请稍后再试";
-            } else if (error.message.includes("服务器错误")) {
-                errorMessage = "AI服务不可用，请稍后再试";
-            } else if (error.name === "TypeError" && error.message.includes("fetch")) {
+            } else if ((error as Error).name === "TypeError" && (error as Error).message.includes("fetch")) {
                 errorMessage = "网络错误，请检查网络连接";
-            } else if (error.name === "SyntaxError") {
+            } else if ((error as Error).name === "SyntaxError") {
                 errorMessage = "解析API响应出错，请重试";
             }
 
@@ -731,8 +731,8 @@ ${memoryContent}`;
                                 fullResponse += newContent;
                                 this.ttsProcessor.addStreamingText(newContent);
                             }
-                        } catch (e) {
-                            console.error('解析响应错误:', e);
+                        } catch (e: unknown) { // 明确指定 error 类型为 unknown
+                            console.error('解析响应错误:', (e as Error).message);
                         }
                     }
                 }
@@ -757,27 +757,27 @@ ${memoryContent}`;
                         newContent,
                         'utf8'
                     );
-                } catch (error) {
-                    console.error('保存弹幕对话记录失败:', error);
+                } catch (error: unknown) { // 明确指定 error 类型为 unknown
+                    console.error('保存弹幕对话记录失败:', (error as Error).message);
                 }
             }
-        } catch (error) {
-            console.error('处理弹幕消息出错:', error);
+        } catch (error: unknown) { // 明确指定 error 类型为 unknown
+            console.error('处理弹幕消息出错:', (error as Error).message);
 
             // 检查错误类型，显示具体错误信息
             let errorMessage = "抱歉，处理弹幕出错";
 
-            if (error.message.includes("API密钥验证失败")) {
+            if ((error as Error).message.includes("API密钥验证失败")) {
                 errorMessage = "API密钥错误，请检查配置";
-            } else if (error.message.includes("API访问被禁止")) {
+            } else if ((error as Error).message.includes("API访问被禁止")) {
                 errorMessage = "API访问受限，请联系支持";
-            } else if (error.message.includes("API接口未找到")) {
+            } else if ((error as Error).message.includes("API接口未找到")) {
                 errorMessage = "无效的API地址，请检查配置";
-            } else if (error.message.includes("请求过于频繁")) {
+            } else if ((error as Error).message.includes("请求过于频繁")) {
                 errorMessage = "请求频率超限，请稍后再试";
-            } else if (error.name === "TypeError" && error.message.includes("fetch")) {
+            } else if ((error as Error).name === "TypeError" && (error as Error).message.includes("fetch")) {
                 errorMessage = "网络错误，请检查网络连接";
-            } else if (error.name === "SyntaxError") {
+            } else if ((error as Error).name === "SyntaxError") {
                 errorMessage = "解析API响应出错，请重试";
             }
 

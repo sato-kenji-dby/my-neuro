@@ -2,6 +2,14 @@
 declare var require: any; // For CommonJS require in Electron context
 declare var Buffer: any;  // For Buffer in Node.js context
 
+declare global {
+    var isProcessingBarrage: boolean;
+    var isPlayingTTS: boolean;
+    var isProcessingUserInput: boolean;
+    var voiceChat: any;
+    var mcpClientModule: any;
+}
+
 class AutoChatModule {
    config: any;
    ttsProcessor: any; // 假设 ttsProcessor 是 TTSProcessor 类的实例

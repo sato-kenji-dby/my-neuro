@@ -41,10 +41,10 @@ class EnhancedTextProcessor {
    _renderFrameId: number | null;
 
    // 这些属性在 translate 方法中被初始化，也需要在这里声明
-   API_KEY: string;
-   API_URL: string;
-   MODEL: string;
-   provider: string;
+   API_KEY!: string;
+   API_URL!: string;
+   MODEL!: string;
+   provider!: string;
    ai: any;
    chat: any; // 尽管可能被移除，但为了避免类型错误先声明
 
