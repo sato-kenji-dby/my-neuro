@@ -125,6 +125,11 @@ class ModelInteractionController {
             if (this.model && this.app && (this.model as any).containsPoint(this.app.renderer.plugins.interaction.mouse.global) && (this.model as any).internalModel) { // 类型断言
                 (this.model as any).motion("Tap"); // 类型断言
                 (this.model as any).expression(); // 类型断言
+
+                // 新增：通过 IPC 通知主进程模型被点击
+                if (this.ipcRenderer) {
+                    this.ipcRenderer.send('model-clicked');
+                }
             }
         });
 

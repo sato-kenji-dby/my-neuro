@@ -4,9 +4,10 @@
     import { browser } from '$app/environment';
     import type { Application, DisplayObject } from 'pixi.js';
     import type { Live2DModel } from 'pixi-live2d-display';
-    import { ModelInteractionController } from '$js/model-interaction';
-    import { EmotionMotionMapper } from '$js/emotion-motion-mapper';
-    import { AudioPlayer } from '$js/audio-player';
+    import { ModelInteractionController } from '$js/renderer/model-interaction';
+    import { EmotionMotionMapper } from '$js/renderer/emotion-motion-mapper';
+    import { AudioPlayer } from '$js/renderer/audio-player';
+    import type { ExposedIpcRenderer } from '$types/ipc'; // 新增导入
 
     // UI 相关的状态
     let subtitleText = '';
@@ -26,28 +27,16 @@
     // 处理文本消息发送
     function handleTextMessage(text: string) {
         if (!text.trim()) return;
-        // ipcRenderer 现在在 onMount 中定义，需要确保它可用
-        // 但更好的做法是将 ipcRenderer 实例传递给这个函数或使其在更广的作用域可用
-        // 为简单起见，我们假设它在调用时已定义
         window.ipcRenderer.send('send-text-message', text);
         chatInputMessage = ''; // 清空输入框
     }
 
-    // 更新鼠标穿透状态
-    // function updateMouseIgnore() {
-    //     if (!model || !app) return;
-    //     const shouldIgnore = !model.containsPoint(app.renderer.plugins.interaction.mouse.global);
-    //     window.ipcRenderer.send('set-ignore-mouse-events', {
-    //         ignore: shouldIgnore,
-    //         options: { forward: true }
-    //     });
-    // }
-
     onMount(async () => {
-        const ipcRenderer = window.ipcRenderer;
+        const ipcRenderer: ExposedIpcRenderer = window.ipcRenderer; // 明确类型
 
         // 设置所有 IPC 监听器
-        ipcRenderer.on('log-message', (_, { level, message }) => {
+        ipcRenderer.on('log-message', (event, ...args: unknown[]) => {
+            const { level, message } = args[0] as { level: string; message: string };
             if (level === 'error') {
                 console.error(message);
             } else if (level === 'warn') {
@@ -57,7 +46,8 @@
             }
         });
 
-        ipcRenderer.on('update-subtitle', (_, { text, show }) => {
+        ipcRenderer.on('update-subtitle', (event, ...args: unknown[]) => {
+            const { text, show } = args[0] as { text: string; show: boolean };
             subtitleText = text;
             showSubtitleContainer = show;
             const subtitleContainer = document.getElementById('subtitle-container');
@@ -66,17 +56,20 @@
             }
         });
 
-        ipcRenderer.on('set-mouth-open-y', (_, value: number) => {
+        ipcRenderer.on('set-mouth-open-y', (event, ...args: unknown[]) => {
+            const value = args[0] as number;
             if (modelController) {
                 modelController.setMouthOpenY(value);
             }
         });
 
-        ipcRenderer.on('tts-playing-status', (_, isPlaying: boolean) => {
+        ipcRenderer.on('tts-playing-status', (event, ...args: unknown[]) => {
+            const isPlaying = args[0] as boolean;
             console.log(`TTS 播放状态: ${isPlaying}`);
         });
 
-        ipcRenderer.on('add-chat-message', (_, message: { role: string; content: string }) => {
+        ipcRenderer.on('add-chat-message', (event, ...args: unknown[]) => {
+            const message = args[0] as { role: string; content: string };
             chatMessages = [...chatMessages, message];
             const chatMessagesContainer = document.getElementById('chat-messages');
             if (chatMessagesContainer) {
@@ -100,7 +93,8 @@
             asrProcessor?.resumeRecording();
         });
 
-        ipcRenderer.on('play-audio', (_, { audioArrayBuffer, text }) => {
+        ipcRenderer.on('play-audio', (event, ...args: unknown[]) => {
+            const { audioArrayBuffer, text } = args[0] as { audioArrayBuffer: ArrayBuffer; text: string };
             audioPlayer?.play(audioArrayBuffer, text);
         });
 
@@ -160,6 +154,7 @@
             onEnd: () => ipcRenderer.send('tts-playing-status', false),
             showSubtitle: (text) => ipcRenderer.send('update-subtitle', { text, show: true }),
             hideSubtitle: () => ipcRenderer.send('update-subtitle', { text: '', show: false }),
+            ipcRenderer: ipcRenderer, // 新增：传递 ipcRenderer
         });
 
         // 通知主进程 Live2D 模型已加载
@@ -167,7 +162,7 @@
 
         // 初始化 ASR
         try {
-            const { ASRProcessor } = await import('$js/asr-processor');
+            const { ASRProcessor } = await import('$js/main/asr-processor');
             const vadUrl = "ws://127.0.0.1:1000/v1/ws/vad";
             const asrUrl = "http://127.0.0.1:1000/v1/upload_audio";
             

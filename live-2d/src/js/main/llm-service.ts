@@ -1,4 +1,3 @@
-import { ipcRenderer } from 'electron';
 import { GoogleGenAI, createUserContent, createPartFromUri } from "@google/genai";
 import type { Message } from './voice-chat'; // 导入 Message 类型
 import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型

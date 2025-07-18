@@ -114,25 +114,29 @@ class AutoChatModule {
        }
    }
 
-   // 等待TTS播放完成
-   waitForTTS(content: string) { // 添加类型
-       return new Promise<void>((resolve) => { // 修正 Promise 类型
-           console.log('设置TTS结束回调，等待播放完成...');
+    // 等待TTS播放完成
+    waitForTTS(content: string) { // 添加类型
+        return new Promise<void>((resolve) => { // 修正 Promise 类型
+            console.log('设置TTS结束回调，等待播放完成...');
 
-           const originalEndCallback = this.ttsProcessor.onEndCallback;
+            // 监听 stateManager.isPlayingTTS 的变化
+            const unsubscribe = stateManager.on('state-change:isPlayingTTS', (isPlaying: boolean) => {
+                if (!isPlaying) {
+                    console.log('TTS播放结束回调被触发 (通过StateManager)');
+                    // 移除监听器，避免内存泄漏和重复触发
+                    // 注意：StateManager 的 on 方法需要返回一个取消订阅的函数
+                    // 如果 StateManager 没有提供 unsubscribe 机制，这里需要调整
+                    // 假设 StateManager.on 返回一个可以用于取消监听的函数
+                    stateManager.off('state-change:isPlayingTTS', unsubscribe); // 假设有 off 方法
+                    resolve();
+                }
+            });
 
-           this.ttsProcessor.onEndCallback = () => {
-               console.log('TTS播放结束回调被触发');
-               this.ttsProcessor.onEndCallback = originalEndCallback;
-               if (originalEndCallback) originalEndCallback();
-               resolve();
-           };
-
-           console.log('开始TTS播放:', content.substring(0, 50) + '...');
-           this.ttsProcessor.reset();
-           this.ttsProcessor.processTextToSpeech(content);
-       });
-   }
+            console.log('开始TTS播放:', content.substring(0, 50) + '...');
+            this.ttsProcessor.reset();
+            this.ttsProcessor.processTextToSpeech(content);
+        });
+    }
 
    updateLastInteractionTime() {
        this.lastInteractionTime = Date.now();

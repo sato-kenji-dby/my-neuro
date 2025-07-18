@@ -14,12 +14,25 @@ class StateManager {
             this.listeners[event] = [];
         }
         this.listeners[event].push(callback);
+        // 返回一个取消订阅的函数
+        return () => {
+            this.off(event, callback);
+        };
+    }
+
+    off(event: string, callback: Function) { // 新增 off 方法
+        if (this.listeners[event]) {
+            this.listeners[event] = this.listeners[event].filter(
+                (listener) => listener !== callback
+            );
+        }
     }
 
     emit(event: string, ...args: any[]) {
         const eventListeners = this.listeners[event];
         if (eventListeners) {
-            eventListeners.forEach(listener => listener(...args));
+            // 遍历副本，以防在迭代过程中修改数组
+            [...eventListeners].forEach(listener => listener(...args));
         }
     }
 

@@ -27,8 +27,8 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // 设置全局代理环境变量
-process.env.HTTP_PROXY = 'socks://127.0.0.1:10808';
-process.env.HTTPS_PROXY = 'socks://127.0.0.1:10808';
+process.env.HTTP_PROXY = 'http://127.0.0.1:10808';
+process.env.HTTPS_PROXY = 'http://127.0.0.1:10808';
 console.log('[Main Process] HTTP_PROXY and HTTPS_PROXY environment variables set.');
 
 let mainWindow;

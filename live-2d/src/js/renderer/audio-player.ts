@@ -1,4 +1,5 @@
 import type { Live2DModel } from 'pixi-live2d-display';
+import type { ExposedIpcRenderer } from '$types/ipc'; // 新增导入
 
 interface AudioPlayerOptions {
     model: Live2DModel;
@@ -7,6 +8,7 @@ interface AudioPlayerOptions {
     onEnd: () => void;
     showSubtitle: (text: string) => void;
     hideSubtitle: () => void;
+    ipcRenderer: ExposedIpcRenderer; // 修改 ipcRenderer 类型
 }
 
 class AudioPlayer {
@@ -16,6 +18,7 @@ class AudioPlayer {
     private onEnd: () => void;
     private showSubtitle: (text: string) => void;
     private hideSubtitle: () => void;
+    private ipcRenderer: ExposedIpcRenderer; // 修改 ipcRenderer 类型
 
     private audioContext: AudioContext | null = null;
     private analyser: AnalyserNode | null = null;
@@ -30,6 +33,7 @@ class AudioPlayer {
         this.onEnd = options.onEnd;
         this.showSubtitle = options.showSubtitle;
         this.hideSubtitle = options.hideSubtitle;
+        this.ipcRenderer = options.ipcRenderer; // 赋值
     }
 
     private async initAudioContext() {
@@ -80,6 +84,9 @@ class AudioPlayer {
             setTimeout(() => this.hideSubtitle(), 1000);
             this.currentAudio = null;
             URL.revokeObjectURL(audioUrl); // 释放 Blob URL
+
+            // 新增：通知主进程 TTS 播放完成
+            this.ipcRenderer.send('tts-playback-finished');
         };
 
         this.currentAudio.play().catch(e => {

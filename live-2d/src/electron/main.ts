@@ -7,14 +7,14 @@ import { GoogleGenAI, createUserContent, createPartFromUri } from '@google/genai
 
 // 导入 Live2D 相关的模块
 import { TTSProcessor } from '$js/main/tts-processor';
-import { ModelInteractionController } from '$js/renderer/model-interaction';
-import { VoiceChatInterface } from '$js/main/voice-chat'; // 导入 VoiceChatInterface
+// import { ModelInteractionController } from '$js/renderer/model-interaction'; // 渲染进程模块，主进程不直接实例化
+import { VoiceChatInterface } from '$js/main/voice-chat';
 import { configLoader } from '$js/main/config-loader';
 import { LiveStreamModule } from '$js/main/LiveStreamModule';
 import { AutoChatModule } from '$js/main/auto-chat';
-import { EmotionMotionMapper } from '$js/renderer/emotion-motion-mapper';
+// import { EmotionMotionMapper } from '$js/renderer/emotion-motion-mapper'; // 渲染进程模块，主进程不直接实例化
 import { MCPClientModule } from '$js/main/mcp-client-module';
-import { stateManager } from '$js/main/state-manager'; // 导入 StateManager
+import { stateManager } from '$js/main/state-manager';
 import { LLMService } from '$js/main/llm-service'; // 导入 LLMService
 import { ScreenshotService } from '$js/main/screenshot-service'; // 导入 ScreenshotService
 
@@ -188,15 +188,14 @@ class Live2DAppCore {
             this.config
         );
 
-
-        // 移除 LLMService 的实例化，因为 LLM 逻辑将移到主进程
-        // this.llmService = new LLMService(
-        //     this.config.llm,
-        //     this.ttsProcessor,
-        //     (text, duration) => this.showSubtitle(text, duration),
-        //     () => this.hideSubtitle(),
-        //     (level, message) => this.logToTerminal(level, message)
-        // );
+        // 实例化 LLMService
+        this.llmService = new LLMService(
+            this.config.llm,
+            this.ttsProcessor,
+            (text, duration) => this.showSubtitle(text, duration),
+            () => this.hideSubtitle(),
+            (level, message) => this.logToTerminal(level, message)
+        );
 
         // 创建 ScreenshotService
         this.screenshotService = new ScreenshotService(
@@ -210,8 +209,8 @@ class Live2DAppCore {
             this.ttsProcessor,
             this.llmService!, // 传递 LLMService 实例
             this.screenshotService!, // 传递 ScreenshotService 实例
-            (text: string, duration: number | null) => this.showSubtitle(text, duration), // 使用 Live2DAppCore 的 showSubtitle
-            () => this.hideSubtitle(), // 使用 Live2DAppCore 的 hideSubtitle
+            (text: string, duration: number | null) => this.showSubtitle(text, duration),
+            () => this.hideSubtitle(),
             this.config
         );
 
@@ -287,6 +286,16 @@ class Live2DAppCore {
     // 渲染进程通知主进程 Live2D 模型已准备好
     public setLive2DModelReady(modelScale: number) {
         this.logToTerminal('info', `Live2D 模型已在渲染进程中准备就绪，模型缩放比例: ${modelScale}`);
+    }
+
+    // 新增：发送 TTS 播放状态到渲染进程
+    public sendTtsPlayingStatus(status: boolean) {
+        this.mainWindow.webContents.send('tts-playing-status', status);
+    }
+
+    // 新增：发送重置 UI 状态到渲染进程
+    public sendResetUiState() {
+        this.mainWindow.webContents.send('reset-ui-state');
     }
 }
 
@@ -387,133 +396,20 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
     });
 
     // 新增：处理 LLM 请求的 IPC 处理器
-    ipcMain.handle('call-llm-service', async (event, { messages, generationConfig, safetySettings, modelName }) => {
-        live2dAppCore?.logToTerminal('info', `主进程收到 LLM 请求，模型: ${modelName}`);
+    ipcMain.handle('call-llm-service', async (event, { prompt, messages, systemInstruction, screenshotData }) => {
+        // live2dAppCore?.logToTerminal('info', `主进程收到 LLM 请求，模型: ${live2dAppCore?.llmService?.config.model}`);
         try {
-            const apiKey = config.llm.api_key;
-            const apiUrl = config.llm.api_url; // 从 config 中获取 API URL
-            const proxyUrl = 'socks://127.0.0.1:10808'; // 代理地址
-
-            if (!apiKey) {
-                live2dAppCore?.logToTerminal('error', 'Google AI API key is missing in config.json.');
-                return { error: 'API key missing' };
+            if (!live2dAppCore?.llmService) {
+                throw new Error("LLMService 未初始化");
             }
-
-            if (!apiUrl) {
-                live2dAppCore?.logToTerminal('error', 'Google AI API URL is missing in config.json.');
-                return { error: 'API URL missing' };
-            }
-
-            const proxyAgent = new SocksProxyAgent(proxyUrl);
-
-            // 自定义 fetch 函数，通过 axios 和代理发送请求
-            const customFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-                const url = typeof input === 'string' ? input : input.toString();
-                const method = init?.method || 'GET';
-                const headers = init?.headers || {};
-                const body = init?.body;
-
-                try {
-                    const response = await axios({
-                        method: method as any,
-                        url: url,
-                        headers: headers as any,
-                        data: body,
-                        timeout: 30000, // 增加超时时间
-                        httpsAgent: proxyAgent // 强制使用 SOCKS5 代理
-                    });
-
-                    // 将 axios 响应转换为 Fetch API 兼容的 Response 对象
-                    return new Response(JSON.stringify(response.data), {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers as any
-                    });
-                } catch (error: any) {
-                    if (axios.isAxiosError(error)) {
-                        if (error.response) {
-                            live2dAppCore?.logToTerminal('error', `LLM API 响应错误: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-                            return new Response(JSON.stringify(error.response.data), {
-                                status: error.response.status,
-                                statusText: error.response.statusText,
-                                headers: error.response.headers as any
-                            });
-                        } else if (error.request) {
-                            live2dAppCore?.logToTerminal('error', `LLM 请求无响应: ${error.message}`);
-                            throw new Error(`LLM Request No Response: ${error.message}`);
-                        } else {
-                            live2dAppCore?.logToTerminal('error', `LLM 请求设置错误: ${error.message}`);
-                            throw new Error(`LLM Request Setup Error: ${error.message}`);
-                        }
-                    }
-                    live2dAppCore?.logToTerminal('error', `主进程处理 LLM 请求出错: ${error.message}`);
-                    throw error;
-                }
-            };
-
-            const genAI = new GoogleGenAI({ apiKey: apiKey});
-
-            let fullResponse = "";
-
-            // 检查 messages 中是否包含图片数据
-            const hasImageData = messages.some((msg: any) =>
-                msg.parts && msg.parts.some((part: any) => part.fileData)
+            // 直接调用 LLMService 实例的方法
+            const fullResponse = await live2dAppCore.llmService.sendToLLM(
+                prompt,
+                messages,
+                systemInstruction,
+                screenshotData
             );
-
-            if (hasImageData) {
-                live2dAppCore?.logToTerminal('info', 'LLM 请求包含图片数据');
-                const contents = messages.map((msg: any) => {
-                    const parts = msg.parts.map((part: any) => {
-                        if (part.fileData) {
-                            return createPartFromUri(part.fileData.uri, part.fileData.mimeType);
-                        }
-                        return { text: part.text };
-                    });
-                    return createUserContent(parts);
-                });
-
-                const result = await genAI.models.generateContentStream({
-                    model: modelName,
-                    contents: contents,
-                    config: {
-                                systemInstruction: generationConfig,
-                            },
-                });
-
-                for await (const chunk of result) {
-                    const chunkText = chunk.text;
-                    fullResponse += chunkText;
-                }
-            } else {
-                live2dAppCore?.logToTerminal('info', 'LLM 请求为纯文本');
-                const chat = genAI.chats.create({
-                    model: modelName,
-                    history: messages,
-                    config: {
-                                systemInstruction: generationConfig,
-                            },
-                });
-
-                // 假设最后一条消息是用户消息，并且是纯文本
-                const lastUserMessage = messages[messages.length - 1];
-                const promptText = lastUserMessage.parts[0].text;
-
-                const result = await chat.sendMessageStream({
-                    message: promptText,
-                    config: {
-                        systemInstruction: messages[0].parts[0].text // 假设系统指令在第一条消息中
-                    }
-                });
-
-                for await (const chunk of result) {
-                    const chunkText = chunk.text;
-                    fullResponse += chunkText;
-                }
-            }
-
-            live2dAppCore?.logToTerminal('info', 'LLM 请求成功，返回响应');
-            return { success: true, data: fullResponse }; // 返回文本内容
-
+            return { success: true, data: fullResponse };
         } catch (error: any) {
             live2dAppCore?.logToTerminal('error', `主进程处理 LLM 请求出错: ${error.message}`);
             return { error: `LLM Error: ${error.message}` };
@@ -528,11 +424,19 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
         mainWindow.setIgnoreMouseEvents(ignore, options);
     });
 
-    ipcMain.on('request-screenshot', async (event) => {
+    ipcMain.on('request-screenshot', async (event, { text }) => { // 接收 text 参数用于 shouldTakeScreenshot
         try {
-            const image = await mainWindow.webContents.capturePage();
-            const base64Image = image.toPNG().toString('base64');
-            event.sender.send('screenshot-response', base64Image);
+            if (!live2dAppCore?.screenshotService) {
+                throw new Error("ScreenshotService 未初始化");
+            }
+            const needScreenshot = await live2dAppCore.screenshotService.shouldTakeScreenshot(text);
+            if (needScreenshot) {
+                const filepath = await live2dAppCore.screenshotService.takeScreenshot();
+                const base64Image = await live2dAppCore.screenshotService.imageToBase64(filepath);
+                event.sender.send('screenshot-response', base64Image);
+            } else {
+                event.sender.send('screenshot-response', null);
+            }
         } catch (error) {
             console.error('截图失败:', error);
             event.sender.send('screenshot-response', null);
@@ -556,5 +460,14 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
 
     ipcMain.on('shutdown-app-core', () => {
         live2dAppCore?.shutdown();
+    });
+
+    // 新增：监听渲染进程的 TTS 播放完成信号
+    ipcMain.on('tts-playback-finished', () => {
+        live2dAppCore?.logToTerminal('info', '接收到 TTS 播放完成信号');
+        stateManager.isPlayingTTS = false; // 更新全局状态
+        stateManager.isProcessingUserInput = false; // 确保用户输入处理状态也解除
+        live2dAppCore?.sendTtsPlayingStatus(false);
+        live2dAppCore?.sendResetUiState();
     });
 }
