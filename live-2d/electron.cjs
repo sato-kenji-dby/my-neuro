@@ -83,6 +83,30 @@ protocol.registerSchemesAsPrivileged([
 app.on('ready', async () => {
   console.log('[Main Process] App is ready.');
 
+  // 设置全局代理
+  const { session } = require('electron');
+  const proxyUrl = 'socks://127.0.0.1:10808';
+  session.defaultSession.setProxy({
+    proxyRules: proxyUrl,
+    proxyBypassRules: '<local>', // 绕过本地地址
+  }).then(() => {
+    console.log(`[Main Process] Proxy set to: ${proxyUrl}`);
+    // 添加网络诊断
+    fetch('https://www.google.com', { method: 'HEAD', timeout: 15000 })
+      .then(response => {
+        if (response.ok) {
+          console.log('[Main Process] Network Diagnosis: Connected to Google.com successfully via proxy.');
+        } else {
+          console.error(`[Main Process] Network Diagnosis: Failed to connect to Google.com via proxy. Status: ${response.status}`);
+        }
+      })
+      .catch(error => {
+        console.error(`[Main Process] Network Diagnosis: Error connecting to Google.com via proxy: ${error.message}`);
+      });
+  }).catch((error) => {
+    console.error(`[Main Process] Failed to set proxy: ${error.message}`);
+  });
+
   protocol.registerFileProtocol('app', (request, callback) => {
     // Use URL parsing to correctly handle paths like '/index.html' or '/_app/...'
     // This prevents issues where '/_app' was being resolved relative to 'index.html'

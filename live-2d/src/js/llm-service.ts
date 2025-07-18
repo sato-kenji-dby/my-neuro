@@ -1,7 +1,5 @@
 import { ipcRenderer } from 'electron';
 import { GoogleGenAI, createUserContent, createPartFromUri } from "@google/genai";
-import { SocksProxyAgent } from 'socks-proxy-agent';
-import fetch from 'node-fetch';
 import type { Message } from './voice-chat'; // 导入 Message 类型
 import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型
 import type { MCPClientModule } from './mcp-client-module'; // 导入 MCPClientModule 类型
@@ -38,23 +36,7 @@ class LLMService {
         this.logToTerminal = logToTerminal;
 
         if (this.config.provider === 'google_aistudio') {
-            // 创建一个SOCKS代理
-            const agent = new SocksProxyAgent('socks://127.0.0.1:10808');
-            
-            // 创建一个自定义的 fetch 实现
-            const customFetch = (url: any, options: any) => {
-                // @ts-ignore
-                return fetch(url, { ...options, agent });
-            };
-
-            this.ai = new GoogleGenAI({ 
-                apiKey: this.config.api_key,
-                // @ts-ignore
-                transport: {
-                    fetch: customFetch
-                }
-            });
-
+            this.ai = new GoogleGenAI({ apiKey: this.config.api_key });
             this.chat = this.ai.chats.create({
                 model: this.config.model,
                 history: [],
