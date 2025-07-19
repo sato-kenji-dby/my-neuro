@@ -27,6 +27,7 @@
     // 处理文本消息发送
     function handleTextMessage(text: string) {
         if (!text.trim()) return;
+        chatMessages = [...chatMessages, { role: 'user', content: text }];
         window.ipcRenderer.send('send-text-message', text);
         chatInputMessage = ''; // 清空输入框
     }

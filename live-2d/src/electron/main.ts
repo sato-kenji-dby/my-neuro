@@ -131,7 +131,7 @@ class Live2DAppCore {
     // 处理文本消息
     public handleTextMessage(text: string) {
         if (!text.trim()) return;
-        this.mainWindow.webContents.send('add-chat-message', { role: 'user', content: text });
+        // this.mainWindow.webContents.send('add-chat-message', { role: 'user', content: text });
         stateManager.isProcessingUserInput = true; // 锁定ASR
         if (this.voiceChat) {
             this.voiceChat.sendToLLM(text).finally(() => {
@@ -416,9 +416,6 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
         }
     });
 
-    ipcMain.on('send-text-message', (_, text: string) => {
-        live2dAppCore?.handleTextMessage(text);
-    });
 
     ipcMain.on('set-ignore-mouse-events', (_, { ignore, options }) => {
         mainWindow.setIgnoreMouseEvents(ignore, options);
