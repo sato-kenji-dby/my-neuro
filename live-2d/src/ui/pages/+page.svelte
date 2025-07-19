@@ -74,6 +74,28 @@
     let asrProcessor: any;
     let audioPlayer: AudioPlayer;
 
+// 跟随模型移动，更新字幕和对话框位置
+function updateUIPositionToModel() {
+    if (!model) return;
+    // 获取模型的全局坐标（假设模型锚点在中心）
+    const modelBounds = model.getBounds();
+    const centerX = modelBounds.x - modelBounds.width / 2;
+    const centerY = modelBounds.y - modelBounds.height / 2;
+    // 将坐标转换为窗口坐标（假设 canvas 全屏）
+    const subtitle = document.getElementById('subtitle-container');
+    const chat = document.getElementById('text-chat-container');
+    if (subtitle) {
+        subtitle.style.left = `${centerX}px`;
+        subtitle.style.top = `${centerY}px`;
+        subtitle.style.transform = 'translate(-50%, -100%)'; // 居中并在模型上方
+    }
+    if (chat) {
+        chat.style.left = `${centerX + 200}px`;
+        chat.style.top = `${centerY}px`;
+        chat.style.transform = 'translate(-50%, 0)'; // 居中
+    }
+}
+
     // 处理文本消息发送
     function handleTextMessage(text: string) {
         if (!text.trim()) return;
@@ -208,6 +230,11 @@
 
         // 通知主进程 Live2D 模型已加载
         ipcRenderer.send('live2d-model-ready', 2.3);
+
+        // 监听模型移动，每帧更新 UI 位置
+        app.ticker.add(() => {
+            updateUIPositionToModel();
+        });
 
         // 根据开发模式设置鼠标穿透
         if (process.env.ELECTRON_START_URL) { // 如果是开发模式
