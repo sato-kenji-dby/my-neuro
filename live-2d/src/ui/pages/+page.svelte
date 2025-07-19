@@ -74,28 +74,6 @@
     let asrProcessor: any;
     let audioPlayer: AudioPlayer;
 
-// 跟随模型移动，更新字幕和对话框位置
-function updateUIPositionToModel() {
-    if (!model) return;
-    // 获取模型的全局坐标（假设模型锚点在中心）
-    const modelBounds = model.getBounds();
-    const centerX = modelBounds.x - modelBounds.width / 2;
-    const centerY = modelBounds.y - modelBounds.height / 2;
-    // 将坐标转换为窗口坐标（假设 canvas 全屏）
-    const subtitle = document.getElementById('subtitle-container');
-    const chat = document.getElementById('text-chat-container');
-    if (subtitle) {
-        subtitle.style.left = `${centerX}px`;
-        subtitle.style.top = `${centerY}px`;
-        subtitle.style.transform = 'translate(-50%, -100%)'; // 居中并在模型上方
-    }
-    if (chat) {
-        chat.style.left = `${centerX + 200}px`;
-        chat.style.top = `${centerY}px`;
-        chat.style.transform = 'translate(-50%, 0)'; // 居中
-    }
-}
-
     // 处理文本消息发送
     function handleTextMessage(text: string) {
         if (!text.trim()) return;
@@ -231,11 +209,6 @@ function updateUIPositionToModel() {
         // 通知主进程 Live2D 模型已加载
         ipcRenderer.send('live2d-model-ready', 2.3);
 
-        // 监听模型移动，每帧更新 UI 位置
-        app.ticker.add(() => {
-            updateUIPositionToModel();
-        });
-
         // 根据开发模式设置鼠标穿透
         if (process.env.ELECTRON_START_URL) { // 如果是开发模式
             ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
@@ -276,6 +249,51 @@ function updateUIPositionToModel() {
         });
 
         ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程应用初始化完成' });
+
+        // 添加拖动功能
+        function makeDraggable(elementId: string) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            let isDragging = false;
+            let offsetX: number;
+            let offsetY: number;
+
+            element.addEventListener('mousedown', (e: MouseEvent) => {
+                isDragging = true;
+                offsetX = e.clientX - element.getBoundingClientRect().left;
+                offsetY = e.clientY - element.getBoundingClientRect().top;
+                element.style.cursor = 'grabbing';
+                element.style.userSelect = 'none'; // 防止拖动时选择文本
+            });
+
+            document.addEventListener('mousemove', (e: MouseEvent) => {
+                if (!isDragging) return;
+
+                // 计算新的位置
+                let newLeft = e.clientX - offsetX;
+                let newTop = e.clientY - offsetY;
+
+                // 限制在窗口边界内
+                newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - element.offsetWidth));
+                newTop = Math.max(0, Math.min(newTop, window.innerHeight - element.offsetHeight));
+
+                element.style.left = `${newLeft}px`;
+                element.style.top = `${newTop}px`;
+                element.style.right = 'auto'; // 禁用right属性，使用left
+                element.style.bottom = 'auto'; // 禁用bottom属性，使用top
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                element.style.cursor = 'grab';
+                element.style.userSelect = 'auto'; // 恢复文本选择
+            });
+        }
+
+        // 应用拖动功能到字幕和聊天框
+        makeDraggable('subtitle-container');
+        makeDraggable('text-chat-container');
     });
 
     onDestroy(() => {
@@ -321,7 +339,7 @@ function updateUIPositionToModel() {
     <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
 
     <div id="subtitle-container"
-         class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto"
+         class="absolute bottom-5 right-5 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto cursor-grab"
          class:hidden={!showSubtitleContainer}>
         <p id="subtitle-text"
            class="text-white text-4xl md:text-5xl font-['Patrick_Hand','ZCOOL_QingKe_HuangYou',sans-serif] leading-normal font-extrabold"
@@ -331,7 +349,7 @@ function updateUIPositionToModel() {
     </div>
 
     <div id="text-chat-container"
-         class="absolute bottom-5 right-5 w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto"
+         class="absolute bottom-5 right-5 w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto cursor-grab"
          class:hidden={!showTextChatContainer}>
         <!-- 隐藏聊天消息历史，只保留输入框 -->
         <!-- <div id="chat-messages" class="max-h-[300px] overflow-y-auto mb-2 text-white font-['Patrick_Hand',sans-serif]">
