@@ -149,7 +149,8 @@ class LLMService {
                                 if (data.text) { // 后端返回的流式数据是 { text: "..." }
                                     const newContent = data.text;
                                     fullResponse += newContent;
-                                    this.ttsProcessor.processStreamedText(newContent); // 流式处理文本
+                                    // 将原始文本块传递给 TTSProcessor
+                                    this.ttsProcessor.processStreamedText(newContent); 
                                 } else if (data.error) {
                                     throw new Error(`后端流式错误: ${data.error}`);
                                 }
