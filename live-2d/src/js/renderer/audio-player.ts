@@ -6,7 +6,7 @@ interface AudioPlayerOptions {
     onMouthUpdate: (value: number) => void;
     onStart: () => void;
     onEnd: () => void;
-    showSubtitle: (text: string, duration: number) => void; // 增加 duration 参数
+    showSubtitle: (text: string, duration: number, wasTranslated: boolean) => void; // 增加 wasTranslated 参数
     hideSubtitle: () => void;
     ipcRenderer: ExposedIpcRenderer;
 }
@@ -16,7 +16,7 @@ class AudioPlayer {
     private onMouthUpdate: (value: number) => void;
     private onStart: () => void;
     private onEnd: () => void;
-    private showSubtitle: (text: string, duration: number) => void; // 增加 duration 参数
+    private showSubtitle: (text: string, duration: number, wasTranslated: boolean) => void; // 增加 wasTranslated 参数
     private hideSubtitle: () => void;
     private ipcRenderer: ExposedIpcRenderer;
 
@@ -45,7 +45,7 @@ class AudioPlayer {
         }
     }
 
-    public async play(audioArrayBuffer: ArrayBuffer, text: string, cleanedText: string) {
+    public async play(audioArrayBuffer: ArrayBuffer, text: string, cleanedText: string, wasTranslated: boolean) {
         await this.initAudioContext();
         this.shouldStop = false;
 
@@ -59,7 +59,7 @@ class AudioPlayer {
         const audioBuffer = await this.audioContext!.decodeAudioData(audioArrayBuffer.slice(0));
         const duration = audioBuffer.duration;
 
-        this.showSubtitle(`Seraphim: ${cleanedText}`, duration);
+        this.showSubtitle(`Seraphim: ${cleanedText}`, duration, wasTranslated);
 
         // 将 ArrayBuffer 转换为 Blob
         const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/wav' });

@@ -15,11 +15,18 @@
     let typewriterInterval: NodeJS.Timeout | null = null;
     
     // 直接在 Svelte 组件中定义字幕控制函数
-    function showSubtitleLocally(text: string, duration: number) {
+    function showSubtitleLocally(text: string, duration: number, wasTranslated: boolean) {
+        const prefix = wasTranslated ? '' : '';
         const pureText = text.replace('Seraphim: ', '');
         if (!showSubtitleContainer) {
             subtitleText = ''; // 如果字幕是隐藏的，开始新的句子时先清空
         }
+        
+        // 在开始新句子时添加前缀
+        if (subtitleText === '') {
+            subtitleText = prefix;
+        }
+
         showSubtitleContainer = true;
 
         if (typewriterInterval) {
@@ -128,9 +135,9 @@
         });
 
         ipcRenderer.on('play-audio', (event, ...args: unknown[]) => {
-            const { audioArrayBuffer, text, cleanedText } = args[0] as { audioArrayBuffer: ArrayBuffer; text: string; cleanedText: string };
+            const { audioArrayBuffer, text, cleanedText, wasTranslated } = args[0] as { audioArrayBuffer: ArrayBuffer; text: string; cleanedText: string; wasTranslated: boolean };
             emotionMapper?.applyEmotionFromText(text);
-            audioPlayer?.play(audioArrayBuffer, text, cleanedText);
+            audioPlayer?.play(audioArrayBuffer, text, cleanedText, wasTranslated);
         });
 
         ipcRenderer.on('interrupt-playback', () => {

@@ -6,7 +6,7 @@ class TTSProcessor {
     private language: string;
     private translationService: TranslationService;
     private ipcSender: (channel: string, ...args: any[]) => void;
-    private audioQueue: { text: string }[] = [];
+    private audioQueue: { text: string; wasTranslated: boolean }[] = [];
     private isPlaying: boolean = false;
     private sentenceBuffer: string = ''; // 用于缓存流式文本
 
@@ -24,15 +24,15 @@ class TTSProcessor {
     public async processTextToSpeech(text: string) {
         if (!text.trim()) return;
 
-        const translatedText = await this.translationService.translate(text);
+        const translationResult = await this.translationService.translate(text);
         
-        const segments = translatedText.split(/([,。，？！；;：:])/g);
+        const segments = translationResult.translatedText.split(/([,。，？！；;：:])/g);
         let tempSegment = "";
         for (let i = 0; i < segments.length; i++) {
             tempSegment += segments[i];
             if (i % 2 === 1 || i === segments.length - 1) {
                 if (tempSegment.trim()) {
-                    this.audioQueue.push({ text: tempSegment.trim() });
+                    this.audioQueue.push({ text: tempSegment.trim(), wasTranslated: translationResult.wasTranslated });
                 }
                 tempSegment = "";
             }
@@ -50,16 +50,17 @@ class TTSProcessor {
             this.sentenceBuffer = this.sentenceBuffer.substring(sentence.length);
 
             if (sentence.trim()) {
-                const translatedText = await this.translationService.translate(sentence.trim());
-                this.audioQueue.push({ text: translatedText });
+                const translationResult = await this.translationService.translate(sentence.trim());
+                this.audioQueue.push({ text: translationResult.translatedText, wasTranslated: translationResult.wasTranslated });
                 this.playNextInQueue();
             }
         }
     }
 
-    public streamEnded() {
+    public async streamEnded() {
         if (this.sentenceBuffer.trim()) {
-            this.audioQueue.push({ text: this.sentenceBuffer.trim() });
+            const translationResult = await this.translationService.translate(this.sentenceBuffer.trim());
+            this.audioQueue.push({ text: translationResult.translatedText, wasTranslated: translationResult.wasTranslated });
             this.playNextInQueue();
             this.sentenceBuffer = '';
         }
@@ -74,8 +75,8 @@ class TTSProcessor {
             return;
         }
         this.isPlaying = true;
-        const { text } = this.audioQueue.shift()!;
-        await this.sendSegmentToTts(text);
+        const { text, wasTranslated } = this.audioQueue.shift()!;
+        await this.sendSegmentToTts(text, wasTranslated);
     }
 
     public handlePlaybackFinished() {
@@ -92,7 +93,7 @@ class TTSProcessor {
         }
     }
 
-    private async sendSegmentToTts(segment: string) {
+    private async sendSegmentToTts(segment: string, wasTranslated: boolean) {
         try {
             const cleanedSegment = segment.replace(/<[^>]+>/g, '');
             const response = await fetch(this.ttsUrl, {
@@ -111,7 +112,7 @@ class TTSProcessor {
             const audioArrayBuffer = await response.arrayBuffer();
 
             // Send audio data (ArrayBuffer) and text to renderer process for playback
-            this.ipcSender('play-audio', { audioArrayBuffer, text: segment, cleanedText: cleanedSegment });
+            this.ipcSender('play-audio', { audioArrayBuffer, text: segment, cleanedText: cleanedSegment, wasTranslated });
 
         } catch (error) {
             console.error('TTS segment processing error:', error);

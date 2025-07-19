@@ -113,6 +113,13 @@ class LLMConfigUpdate(BaseModel):
     model: Optional[str] = None
     system_prompt: Optional[str] = None # 用于更新默认的系统提示
 
+# 新增：翻译请求模型
+class TranslateRequest(BaseModel):
+    text: str
+    source_lang: str
+    target_lang: str
+    prompt: str
+
 # 全局变量，用于存储 LLM 配置
 current_llm_config = {
     "api_key": GEMINI_API_KEY,
@@ -423,6 +430,44 @@ async def update_llm_config(config_update: LLMConfigUpdate):
         print(f"Default system prompt updated to: {current_llm_config['system_prompt']}")
 
     return {"status": "success", "message": "LLM configuration updated."}
+
+
+# 新增：翻译端点 (使用Gemini)
+@app.post("/translate")
+async def translate_text(request: TranslateRequest):
+    if gemini_client is None:
+        raise HTTPException(status_code=503, detail="Gemini API key not set, Gemini API is not available.")
+
+    try:
+        # 使用一个独立的 Gemini 调用进行翻译，不使用对话历史
+        # 注意：这里的模型可以硬编码为适合翻译的模型，或者从配置中读取
+        translation_model = "gemini-2.5-flash-lite-preview-06-17" # 或者其他轻量级模型
+        
+        # 构造翻译请求的内容
+        # 格式：系统提示 + 用户提供的文本
+        contents_for_translation = [
+            types.Content(role='user', parts=[types.Part(text=request.text)])
+        ]
+        
+        # 构造翻译请求的配置
+        config_for_translation = types.GenerateContentConfig(
+            system_instruction=request.prompt,
+            temperature=0.1 # 翻译任务通常需要较低的温度以确保准确性
+        )
+
+        # 调用 Gemini API (非流式)
+        response = gemini_client.models.generate_content(
+            model=translation_model,
+            contents=contents_for_translation,
+            config=config_for_translation
+        )
+
+        translated_text = response.text
+        return {"translatedText": translated_text}
+
+    except Exception as e:
+        print(f"Error during translation API call: {e}")
+        raise HTTPException(status_code=500, detail=f"Translation failed: {e}")
 
 
 # 健康检查
