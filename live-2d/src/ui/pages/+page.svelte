@@ -291,10 +291,10 @@
 </svelte:head>
 
 <div class="relative w-screen h-screen overflow-hidden">
-    <canvas id="canvas" class="fixed top-0 left-0 w-full h-full"></canvas>
+    <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
 
     <div id="subtitle-container"
-         class="fixed bottom-20 left-1/2 -translate-x-1/2 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto"
+         class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto"
          class:hidden={!showSubtitleContainer}>
         <p id="subtitle-text"
            class="text-white text-4xl md:text-5xl font-['Patrick_Hand','ZCOOL_QingKe_HuangYou',sans-serif] leading-normal font-extrabold"
@@ -304,7 +304,7 @@
     </div>
 
     <div id="text-chat-container"
-         class="fixed bottom-5 right-5 w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto"
+         class="absolute bottom-5 right-5 w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto"
          class:hidden={!showTextChatContainer}>
         <!-- 隐藏聊天消息历史，只保留输入框 -->
         <!-- <div id="chat-messages" class="max-h-[300px] overflow-y-auto mb-2 text-white font-['Patrick_Hand',sans-serif]">
@@ -328,11 +328,18 @@
 
 <style lang="postcss">
     #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
         pointer-events: auto; /* Live2D 模型区域可交互 */
         z-index: 0; /* 确保 canvas 在底层 */
+        background: transparent;
     }
     #subtitle-container,
     #text-chat-container {
+        position: absolute;
         pointer-events: auto; /* 字幕和聊天框可交互 */
         z-index: 10; /* 确保在 canvas 上方 */
     }
