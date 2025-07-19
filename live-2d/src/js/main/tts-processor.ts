@@ -6,6 +6,8 @@ class TTSProcessor {
     private language: string;
     private translationService: TranslationService;
     private ipcSender: (channel: string, ...args: any[]) => void;
+    private audioQueue: { text: string }[] = [];
+    private isPlaying: boolean = false;
 
     constructor(
         ipcSender: (channel: string, ...args: any[]) => void,
@@ -23,18 +25,32 @@ class TTSProcessor {
 
         const translatedText = await this.translationService.translate(text);
         
-        // Simple text segmentation
         const segments = translatedText.split(/([,。，？！；;：:])/g);
         let tempSegment = "";
         for (let i = 0; i < segments.length; i++) {
             tempSegment += segments[i];
             if (i % 2 === 1 || i === segments.length - 1) {
                 if (tempSegment.trim()) {
-                    this.sendSegmentToTts(tempSegment.trim());
+                    this.audioQueue.push({ text: tempSegment.trim() });
                 }
                 tempSegment = "";
             }
         }
+        this.playNextInQueue();
+    }
+
+    private async playNextInQueue() {
+        if (this.isPlaying || this.audioQueue.length === 0) {
+            return;
+        }
+        this.isPlaying = true;
+        const { text } = this.audioQueue.shift()!;
+        await this.sendSegmentToTts(text);
+    }
+
+    public handlePlaybackFinished() {
+        this.isPlaying = false;
+        this.playNextInQueue();
     }
 
     private async sendSegmentToTts(segment: string) {
@@ -62,17 +78,9 @@ class TTSProcessor {
         }
     }
 
-    public addStreamingText(text: string) {
-        // This method will be simplified or moved to the renderer process
-        // For now, we just send the raw text to be handled by the frontend player
-        this.ipcSender('stream-text', { text });
-    }
-
-    public finalizeStreamingText() {
-        this.ipcSender('finalize-stream');
-    }
-
     public interrupt() {
+        this.audioQueue = [];
+        this.isPlaying = false;
         this.ipcSender('interrupt-playback');
     }
 

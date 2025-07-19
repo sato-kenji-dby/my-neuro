@@ -462,6 +462,7 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
     // 新增：监听渲染进程的 TTS 播放完成信号
     ipcMain.on('tts-playback-finished', () => {
         live2dAppCore?.logToTerminal('info', '接收到 TTS 播放完成信号');
+        live2dAppCore?.ttsProcessor?.handlePlaybackFinished(); // 调用 ttsProcessor 处理队列
         stateManager.isPlayingTTS = false; // 更新全局状态
         stateManager.isProcessingUserInput = false; // 确保用户输入处理状态也解除
         live2dAppCore?.sendTtsPlayingStatus(false);
