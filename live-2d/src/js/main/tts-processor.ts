@@ -8,6 +8,7 @@ class TTSProcessor {
     private ipcSender: (channel: string, ...args: any[]) => void;
     private audioQueue: { text: string }[] = [];
     private isPlaying: boolean = false;
+    private sentenceBuffer: string = ''; // 用于缓存流式文本
 
     constructor(
         ipcSender: (channel: string, ...args: any[]) => void,
@@ -39,6 +40,35 @@ class TTSProcessor {
         this.playNextInQueue();
     }
 
+    public async processStreamedText(text: string) {
+        this.sentenceBuffer += text;
+        const sentenceEnders = /([,。，？！；;：:])/g;
+        
+        let match;
+        while ((match = sentenceEnders.exec(this.sentenceBuffer)) !== null) {
+            const sentence = this.sentenceBuffer.substring(0, match.index + match[1].length);
+            this.sentenceBuffer = this.sentenceBuffer.substring(sentence.length);
+
+            if (sentence.trim()) {
+                const translatedText = await this.translationService.translate(sentence.trim());
+                this.audioQueue.push({ text: translatedText });
+                this.playNextInQueue();
+            }
+        }
+    }
+
+    public streamEnded() {
+        if (this.sentenceBuffer.trim()) {
+            this.audioQueue.push({ text: this.sentenceBuffer.trim() });
+            this.playNextInQueue();
+            this.sentenceBuffer = '';
+        }
+        // 当音频队列为空且流已结束时，发送对话结束信号
+        if (this.audioQueue.length === 0 && !this.isPlaying) {
+            this.ipcSender('dialogue-ended');
+        }
+    }
+
     private async playNextInQueue() {
         if (this.isPlaying || this.audioQueue.length === 0) {
             return;
@@ -51,6 +81,15 @@ class TTSProcessor {
     public handlePlaybackFinished() {
         this.isPlaying = false;
         this.playNextInQueue();
+        // 检查在播放完毕后，队列是否为空，以及流是否已结束（通过buffer判断）
+        if (this.audioQueue.length === 0 && this.sentenceBuffer === '') {
+             // 延迟发送，确保是最后一条消息
+            setTimeout(() => {
+                if(this.audioQueue.length === 0 && !this.isPlaying) {
+                    this.ipcSender('dialogue-ended');
+                }
+            }, 100);
+        }
     }
 
     private async sendSegmentToTts(segment: string) {
@@ -87,6 +126,7 @@ class TTSProcessor {
 
     public reset() {
         this.interrupt();
+        this.sentenceBuffer = '';
     }
 }
 

@@ -15,7 +15,10 @@
     
     // 直接在 Svelte 组件中定义字幕控制函数
     function showSubtitleLocally(text: string) {
-        subtitleText = text;
+        if (!showSubtitleContainer) {
+            subtitleText = ''; // 如果字幕是隐藏的，开始新的句子时先清空
+        }
+        subtitleText += text.replace('Seraphim: ', ''); // 追加文本，并移除可能的前缀
         showSubtitleContainer = true;
         const subtitleContainer = document.getElementById('subtitle-container');
         if (subtitleContainer) {
@@ -24,8 +27,11 @@
     }
 
     function hideSubtitleLocally() {
-        subtitleText = '';
-        showSubtitleContainer = false;
+        // 这个函数现在可能需要重新考虑，暂时保留
+        setTimeout(() => {
+            subtitleText = '';
+            showSubtitleContainer = false;
+        }, 2000); // 延迟一段时间再隐藏
     }
     let showTextChatContainer = false;
     let chatInputMessage = '';
@@ -109,6 +115,10 @@
             audioPlayer?.interrupt();
         });
 
+        ipcRenderer.on('dialogue-ended', () => {
+            hideSubtitleLocally();
+        });
+
         // 动态导入仅客户端的库
         const PIXI = await import('pixi.js');
         const { Live2DModel } = await import('pixi-live2d-display');
@@ -157,10 +167,13 @@
         audioPlayer = new AudioPlayer({
             model: model,
             onMouthUpdate: (value) => modelController.setMouthOpenY(value),
-            onStart: () => ipcRenderer.send('tts-playing-status', true),
-            onEnd: () => ipcRenderer.send('tts-playing-status', false),
+            onStart: () => {}, // onStart 现在由 showSubtitleLocally 隐式处理
+            onEnd: () => {
+                ipcRenderer.send('tts-playing-status', false);
+                // 不再在每个片段结束后隐藏字幕
+            },
             showSubtitle: showSubtitleLocally, // 直接调用本地函数
-            hideSubtitle: hideSubtitleLocally, // 直接调用本地函数
+            hideSubtitle: () => {}, // 禁用单个片段的隐藏功能
             ipcRenderer: ipcRenderer,
         });
 
