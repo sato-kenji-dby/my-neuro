@@ -43,11 +43,6 @@ class Live2DAppCore {
     constructor(mainWindow: BrowserWindow) {
         this.mainWindow = mainWindow;
         this.logToTerminal('info', 'Live2DAppCore 实例已创建');
-
-        // 监听 stateManager 的 isProcessingUserInput 变化并通知渲染进程
-        stateManager.on('state-change:isProcessingUserInput', (newValue: boolean) => {
-            this.mainWindow.webContents.send('update-processing-state', newValue);
-        });
     }
 
     // 添加终端日志记录函数
