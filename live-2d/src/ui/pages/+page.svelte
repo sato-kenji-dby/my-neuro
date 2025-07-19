@@ -95,8 +95,9 @@
         });
 
         ipcRenderer.on('play-audio', (event, ...args: unknown[]) => {
-            const { audioArrayBuffer, text } = args[0] as { audioArrayBuffer: ArrayBuffer; text: string };
-            audioPlayer?.play(audioArrayBuffer, text);
+            const { audioArrayBuffer, text, cleanedText } = args[0] as { audioArrayBuffer: ArrayBuffer; text: string; cleanedText: string };
+            emotionMapper?.applyEmotionFromText(text);
+            audioPlayer?.play(audioArrayBuffer, text, cleanedText);
         });
 
         ipcRenderer.on('interrupt-playback', () => {

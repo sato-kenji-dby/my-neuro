@@ -45,7 +45,7 @@ class AudioPlayer {
         }
     }
 
-    public async play(audioArrayBuffer: ArrayBuffer, text: string) {
+    public async play(audioArrayBuffer: ArrayBuffer, text: string, cleanedText: string) {
         await this.initAudioContext();
         this.shouldStop = false;
 
@@ -54,7 +54,7 @@ class AudioPlayer {
         }
 
         this.onStart();
-        this.showSubtitle(`Seraphim: ${text}`);
+        this.showSubtitle(`Seraphim: ${cleanedText}`);
 
         // 将 ArrayBuffer 转换为 Blob
         const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/wav' });

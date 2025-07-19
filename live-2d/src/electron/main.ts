@@ -252,11 +252,6 @@ class Live2DAppCore {
             this.logToTerminal('info', `直播模块已启动，监听房间: ${this.liveStreamModule.roomId}`);
         }
 
-        // 播放欢迎语
-        setTimeout(() => {
-            this.ttsProcessor?.processTextToSpeech(this.config.ui.intro_text || "你好，我叫fake neuro。");
-        }, 1000);
-
         // 录音将在前端启动
 
         // 初始化并启动自动对话模块
@@ -453,6 +448,10 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
 
     ipcMain.on('live2d-model-ready', (_, modelScale: number) => {
         live2dAppCore?.setLive2DModelReady(modelScale);
+        // 在模型准备好后播放欢迎语
+        setTimeout(() => {
+            live2dAppCore?.ttsProcessor?.processTextToSpeech(config.ui.intro_text || "你好，我叫fake neuro。");
+        }, 1000);
     });
 
     ipcMain.on('shutdown-app-core', () => {

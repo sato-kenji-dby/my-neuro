@@ -55,11 +55,12 @@ class TTSProcessor {
 
     private async sendSegmentToTts(segment: string) {
         try {
+            const cleanedSegment = segment.replace(/<[^>]+>/g, '');
             const response = await fetch(this.ttsUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: segment,
+                    text: cleanedSegment,
                     text_language: this.language,
                 }),
             });
@@ -71,7 +72,7 @@ class TTSProcessor {
             const audioArrayBuffer = await response.arrayBuffer();
 
             // Send audio data (ArrayBuffer) and text to renderer process for playback
-            this.ipcSender('play-audio', { audioArrayBuffer, text: segment });
+            this.ipcSender('play-audio', { audioArrayBuffer, text: segment, cleanedText: cleanedSegment });
 
         } catch (error) {
             console.error('TTS segment processing error:', error);

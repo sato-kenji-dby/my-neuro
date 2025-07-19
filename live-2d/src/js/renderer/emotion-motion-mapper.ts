@@ -159,6 +159,10 @@ class EmotionMotionMapper {
         // 移除所有情绪标签后返回纯文本
         return text.replace(/<[^>]+>/g, '').trim();
     }
+
+    public applyEmotionFromText(text: string) {
+        this.triggerMotionByEmotion(text);
+    }
     
     // 播放指定索引的动作
     playMotion(index: number) { // 添加 index 参数类型
