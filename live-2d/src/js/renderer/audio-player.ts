@@ -6,9 +6,9 @@ interface AudioPlayerOptions {
     onMouthUpdate: (value: number) => void;
     onStart: () => void;
     onEnd: () => void;
-    showSubtitle: (text: string) => void;
+    showSubtitle: (text: string, duration: number) => void; // 增加 duration 参数
     hideSubtitle: () => void;
-    ipcRenderer: ExposedIpcRenderer; // 修改 ipcRenderer 类型
+    ipcRenderer: ExposedIpcRenderer;
 }
 
 class AudioPlayer {
@@ -16,9 +16,9 @@ class AudioPlayer {
     private onMouthUpdate: (value: number) => void;
     private onStart: () => void;
     private onEnd: () => void;
-    private showSubtitle: (text: string) => void;
+    private showSubtitle: (text: string, duration: number) => void; // 增加 duration 参数
     private hideSubtitle: () => void;
-    private ipcRenderer: ExposedIpcRenderer; // 修改 ipcRenderer 类型
+    private ipcRenderer: ExposedIpcRenderer;
 
     private audioContext: AudioContext | null = null;
     private analyser: AnalyserNode | null = null;
@@ -54,7 +54,12 @@ class AudioPlayer {
         }
 
         this.onStart();
-        this.showSubtitle(`Seraphim: ${cleanedText}`);
+
+        // 解码音频以获取时长
+        const audioBuffer = await this.audioContext!.decodeAudioData(audioArrayBuffer.slice(0));
+        const duration = audioBuffer.duration;
+
+        this.showSubtitle(`Seraphim: ${cleanedText}`, duration);
 
         // 将 ArrayBuffer 转换为 Blob
         const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/wav' });

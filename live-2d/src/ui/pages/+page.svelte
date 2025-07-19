@@ -12,22 +12,44 @@
     // UI 相关的状态
     let subtitleText = '';
     let showSubtitleContainer = false;
+    let typewriterInterval: NodeJS.Timeout | null = null;
     
     // 直接在 Svelte 组件中定义字幕控制函数
-    function showSubtitleLocally(text: string) {
+    function showSubtitleLocally(text: string, duration: number) {
+        const pureText = text.replace('Seraphim: ', '');
         if (!showSubtitleContainer) {
             subtitleText = ''; // 如果字幕是隐藏的，开始新的句子时先清空
         }
-        subtitleText += text.replace('Seraphim: ', ''); // 追加文本，并移除可能的前缀
         showSubtitleContainer = true;
-        const subtitleContainer = document.getElementById('subtitle-container');
-        if (subtitleContainer) {
-            subtitleContainer.scrollTop = subtitleContainer.scrollHeight;
+
+        if (typewriterInterval) {
+            clearInterval(typewriterInterval);
         }
+
+        let charIndex = 0;
+        // 乘以一个小于1的系数来加速，例如 0.7。这意味着文字将在70%的音频时间内显示完毕。
+        const intervalDuration = (duration * 1000 * 0.5) / pureText.length;
+
+        typewriterInterval = setInterval(() => {
+            if (charIndex < pureText.length) {
+                subtitleText += pureText[charIndex];
+                charIndex++;
+                const subtitleContainer = document.getElementById('subtitle-container');
+                if (subtitleContainer) {
+                    subtitleContainer.scrollTop = subtitleContainer.scrollHeight;
+                }
+            } else {
+                clearInterval(typewriterInterval!);
+                typewriterInterval = null;
+            }
+        }, intervalDuration);
     }
 
     function hideSubtitleLocally() {
-        // 这个函数现在可能需要重新考虑，暂时保留
+        if (typewriterInterval) {
+            clearInterval(typewriterInterval);
+            typewriterInterval = null;
+        }
         setTimeout(() => {
             subtitleText = '';
             showSubtitleContainer = false;
@@ -172,7 +194,7 @@
                 ipcRenderer.send('tts-playing-status', false);
                 // 不再在每个片段结束后隐藏字幕
             },
-            showSubtitle: showSubtitleLocally, // 直接调用本地函数
+            showSubtitle: showSubtitleLocally,
             hideSubtitle: () => {}, // 禁用单个片段的隐藏功能
             ipcRenderer: ipcRenderer,
         });
