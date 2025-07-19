@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, session, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
@@ -43,6 +43,11 @@ class Live2DAppCore {
     constructor(mainWindow: BrowserWindow) {
         this.mainWindow = mainWindow;
         this.logToTerminal('info', 'Live2DAppCore 实例已创建');
+
+        // 监听 stateManager 的 isProcessingUserInput 变化并通知渲染进程
+        stateManager.on('state-change:isProcessingUserInput', (newValue: boolean) => {
+            this.mainWindow.webContents.send('update-processing-state', newValue);
+        });
     }
 
     // 添加终端日志记录函数
@@ -369,7 +374,7 @@ export async function initializeMainProcess(mainWindow: BrowserWindow) {
         live2dAppCore.logToTerminal('info', '配置文件加载成功');
 
         // 运行网络诊断
-        await diagnoseNetwork(config);
+        // await diagnoseNetwork(config);
 
         // 初始化 Live2DAppCore
         await live2dAppCore.initialize(config);

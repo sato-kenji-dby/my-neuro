@@ -2,9 +2,12 @@
 // Heartstring Main Process Entry Point
 
 // --- 1. 模块导入 ---
-const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
+const { app, session, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
 const path = require('path');
 const url = require('url');
+
+// app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND , EXCLUDE 127.0.0.1, EXCLUDE localhost');
+// console.log('[Main Process] DNS resolver rules appended to force proxy DNS.');
 
 process.on('uncaughtException', (error, origin) => {
   console.error('!!!!!!!!!! FATAL: UNCAUGHT EXCEPTION !!!!!!!!!');
@@ -27,9 +30,9 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // 设置全局代理环境变量
-process.env.HTTP_PROXY = 'http://127.0.0.1:10808';
-process.env.HTTPS_PROXY = 'http://127.0.0.1:10808';
-console.log('[Main Process] HTTP_PROXY and HTTPS_PROXY environment variables set.');
+// process.env.HTTP_PROXY = 'http://127.0.0.1:10808';
+// process.env.HTTPS_PROXY = 'http://127.0.0.1:10808';
+// console.log('[Main Process] HTTP_PROXY and HTTPS_PROXY environment variables set.');
 
 let mainWindow;
 
@@ -88,30 +91,23 @@ protocol.registerSchemesAsPrivileged([
 app.on('ready', async () => {
   console.log('[Main Process] App is ready.');
 
-  // 移除 Electron 的 session 代理设置，因为我们现在使用环境变量
-  // const { session } = require('electron');
-  // const proxyUrl = 'socks://127.0.0.1:10808';
-  // session.defaultSession.setProxy({
-  //   proxyRules: proxyUrl,
-  //   proxyBypassRules: '<local>', // 绕过本地地址
-  // }).then(() => {
-  //   console.log(`[Main Process] Proxy set to: ${proxyUrl}`);
-  //   // 添加网络诊断
-  //   fetch('https://www.google.com', { method: 'HEAD', timeout: 15000 })
-  //     .then(response => {
-  //       if (response.ok) {
-  //         console.log('[Main Process] Network Diagnosis: Connected to Google.com successfully via proxy.');
-  //       } else {
-  //         console.error(`[Main Process] Network Diagnosis: Failed to connect to Google.com via proxy. Status: ${response.status}`);
-  //       }
-  //     })
-  //     .catch(error => {
-  //       console.error(`[Main Process] Network Diagnosis: Error connecting to Google.com via proxy: ${error.message}`);
-  //     });
-  // }).catch((error) => {
-  //   console.error(`[Main Process] Failed to set proxy: ${error.message}`);
-  // });
+  // --- 1. 正确地、同步地设置代理和DNS规则 ---
+  // try {
+  //   const proxyUrl = 'http://127.0.0.1:10808';
+  //   await session.defaultSession.setProxy({
+  //     proxyRules: proxyUrl,
+  //     proxyBypassRules: '<local>', // 绕过本地地址
+  //   });
+  //   console.log(`[Main Process] Proxy rules set to: ${proxyUrl}`);
+    
+  //   // 注意：不要在这里用主进程的fetch/axios来测试。
+  //   // setProxy的验证，应该通过观察渲染进程中的网络请求是否成功来进行。
 
+  // } catch (error) {
+  //   console.error(`[Main Process] Failed to set proxy:`, error);
+  // }
+
+  // --- 2. 注册自定义协议 ---
   protocol.registerFileProtocol('app', (request, callback) => {
     // Use URL parsing to correctly handle paths like '/index.html' or '/_app/...'
     // This prevents issues where '/_app' was being resolved relative to 'index.html'
