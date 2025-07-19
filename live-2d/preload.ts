@@ -23,4 +23,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.removeAllListeners(channel),
 });
 
+contextBridge.exposeInMainWorld('appInfo', {
+  isDevelopment: !!process.env.ELECTRON_START_URL,
+});
+
 console.log('[Preload] "electronAPI" and "ipcRenderer" exposed.');

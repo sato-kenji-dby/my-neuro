@@ -15,5 +15,8 @@ export interface ExposedIpcRenderer {
 declare global {
   interface Window {
     ipcRenderer: ExposedIpcRenderer;
+    appInfo: {
+      isDevelopment: boolean;
+    };
   }
 }

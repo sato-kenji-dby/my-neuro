@@ -158,8 +158,8 @@
             view: canvas,
             autoStart: true,
             transparent: true,
-            width: window.innerWidth * 2,
-            height: window.innerHeight * 2
+            width: window.innerWidth, // 调整为窗口宽度
+            height: window.innerHeight // 调整为窗口高度
         });
 
         // 显式禁用默认的事件行为，有时可以避免冲突
@@ -208,6 +208,15 @@
 
         // 通知主进程 Live2D 模型已加载
         ipcRenderer.send('live2d-model-ready', 2.3);
+
+        // 根据开发模式设置鼠标穿透
+        if (process.env.ELECTRON_START_URL) { // 如果是开发模式
+            ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
+            ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：开发模式下禁用鼠标穿透。' });
+        } else {
+            ipcRenderer.send('request-set-ignore-mouse-events', { ignore: true });
+            ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：生产模式下启用鼠标穿透。' });
+        }
 
         // 初始化 ASR
         try {
@@ -320,10 +329,12 @@
 <style lang="postcss">
     #canvas {
         pointer-events: auto; /* Live2D 模型区域可交互 */
+        z-index: 0; /* 确保 canvas 在底层 */
     }
     #subtitle-container,
     #text-chat-container {
         pointer-events: auto; /* 字幕和聊天框可交互 */
+        z-index: 10; /* 确保在 canvas 上方 */
     }
 
     /* 确保滚动条隐藏 */

@@ -116,14 +116,14 @@ class ModelInteractionController {
 
         // 鼠标悬停事件
         (this.model as any).on('mouseover', () => {
-            if (this.ipcRenderer) {
+            if (this.ipcRenderer && !window.appInfo.isDevelopment) { // 仅在非开发模式下发送
                 this.ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
             }
         });
 
         // 鼠标离开事件
         (this.model as any).on('mouseout', () => {
-            if (this.ipcRenderer) {
+            if (this.ipcRenderer && !window.appInfo.isDevelopment) { // 仅在非开发模式下发送
                 this.ipcRenderer.send('request-set-ignore-mouse-events', { ignore: true });
             }
         });
