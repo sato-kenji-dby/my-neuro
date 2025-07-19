@@ -36,8 +36,6 @@ class VoiceChatInterface {
     private ttsProcessor: TTSProcessor;
     private llmService: LLMService; // 添加 LLMService 实例
     private screenshotService: ScreenshotService; // 添加 ScreenshotService 实例
-    private showSubtitle: (text: string, duration: number) => void;
-    private hideSubtitle: () => void;
     private maxContextMessages: number;
     public enableContextLimit: boolean;
     private memoryFilePath: string;
@@ -51,16 +49,12 @@ class VoiceChatInterface {
         ttsProcessor: TTSProcessor,
         llmService: LLMService, // 接收 LLMService 实例
         screenshotService: ScreenshotService, // 接收 ScreenshotService 实例
-        showSubtitle: (text: string, duration: number) => void,
-        hideSubtitle: () => void,
         config: VoiceChatConfig
     ) {
         this.config = config;
         this.ttsProcessor = ttsProcessor;
         this.llmService = llmService;
         this.screenshotService = screenshotService;
-        this.showSubtitle = showSubtitle;
-        this.hideSubtitle = hideSubtitle;
         
         this.maxContextMessages = this.config.context.max_messages;
         this.enableContextLimit = this.config.context.enable_limit;
@@ -207,7 +201,6 @@ ${memoryContent}`;
 
     // 处理从渲染进程收到的已识别语音
     public async handleRecognizedSpeech(text: string) {
-        this.showSubtitle(`用户: ${text}`, 3000);
         stateManager.isProcessingUserInput = true;
 
         try {
@@ -281,9 +274,7 @@ ${memoryContent}`;
             }
         } catch (error: unknown) {
             console.error("LLM处理错误:", (error as Error).message);
-            this.showSubtitle(`抱歉，出现了一个错误: ${(error as Error).message.substring(0, 50)}...`, 3000);
-            // this.asrProcessor.resumeRecording(); // This will be handled by the frontend via IPC
-            setTimeout(() => this.hideSubtitle(), 3000);
+            // 错误信息现在应该通过其他方式（如聊天消息）显示，而不是字幕
         } finally {
             stateManager.isProcessingUserInput = false;
         }

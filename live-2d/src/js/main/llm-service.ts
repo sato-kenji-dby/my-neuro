@@ -15,21 +15,15 @@ class LLMService {
     private config: LLMServiceConfig;
     private ttsProcessor: TTSProcessor;
     private mcpClientModule: MCPClientModule | undefined;
-    private showSubtitle: (text: string, duration: number) => void;
-    private hideSubtitle: () => void;
     private logToTerminal: (level: string, message: string) => void;
 
     constructor(
         config: LLMServiceConfig,
         ttsProcessor: TTSProcessor,
-        showSubtitle: (text: string, duration: number) => void,
-        hideSubtitle: () => void,
         logToTerminal: (level: string, message: string) => void
     ) {
         this.config = config;
         this.ttsProcessor = ttsProcessor;
-        this.showSubtitle = showSubtitle;
-        this.hideSubtitle = hideSubtitle;
         this.logToTerminal = logToTerminal;
 
         // 在构造函数中发送配置到后端
@@ -229,7 +223,7 @@ class LLMService {
             return fullResponse;
         } catch (error: unknown) {
             this.logToTerminal('error', `LLM处理错误: ${(error as Error).message}`);
-            this.showSubtitle(`抱歉，出现了一个错误: ${(error as Error).message.substring(0, 50)}...`, 3000);
+            // 错误信息现在应该通过其他方式（如聊天消息）显示，而不是字幕
             return null; // Return null instead of re-throwing the error
         } finally {
             stateManager.isProcessingUserInput = false;

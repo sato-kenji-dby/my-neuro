@@ -37,7 +37,6 @@ class Live2DAppCore {
     public screenshotService: ScreenshotService | undefined; // 添加 ScreenshotService 实例
     private config: any; // 确保 config 在 Live2DAppCore 中可用
 
-    private subtitleTimeout: NodeJS.Timeout | null = null;
     private barrageQueue: { nickname: string; text: string }[] = [];
 
     constructor(mainWindow: BrowserWindow) {
@@ -59,29 +58,6 @@ class Live2DAppCore {
         }
         // 将日志发送到渲染进程
         this.mainWindow.webContents.send('log-message', { level, message: formattedMsg });
-    }
-
-    // 字幕管理
-    private showSubtitle(text: string, duration: number | null = null) {
-        if (this.subtitleTimeout) {
-            clearTimeout(this.subtitleTimeout);
-            this.subtitleTimeout = null;
-        }
-        this.mainWindow.webContents.send('update-subtitle', { text, show: true });
-
-        if (duration) {
-            this.subtitleTimeout = setTimeout(() => {
-                this.hideSubtitle();
-            }, duration);
-        }
-    }
-
-    private hideSubtitle() {
-        this.mainWindow.webContents.send('update-subtitle', { text: '', show: false });
-        if (this.subtitleTimeout) {
-            clearTimeout(this.subtitleTimeout);
-            this.subtitleTimeout = null;
-        }
     }
 
     // 更新鼠标穿透状态
@@ -192,8 +168,6 @@ class Live2DAppCore {
         this.llmService = new LLMService(
             this.config.llm,
             this.ttsProcessor,
-            (text, duration) => this.showSubtitle(text, duration),
-            () => this.hideSubtitle(),
             (level, message) => this.logToTerminal(level, message)
         );
 
@@ -209,8 +183,6 @@ class Live2DAppCore {
             this.ttsProcessor,
             this.llmService!, // 传递 LLMService 实例
             this.screenshotService!, // 传递 ScreenshotService 实例
-            (text: string, duration: number | null) => this.showSubtitle(text, duration),
-            () => this.hideSubtitle(),
             this.config
         );
 

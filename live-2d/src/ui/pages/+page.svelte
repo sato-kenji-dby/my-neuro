@@ -12,6 +12,21 @@
     // UI 相关的状态
     let subtitleText = '';
     let showSubtitleContainer = false;
+    
+    // 直接在 Svelte 组件中定义字幕控制函数
+    function showSubtitleLocally(text: string) {
+        subtitleText = text;
+        showSubtitleContainer = true;
+        const subtitleContainer = document.getElementById('subtitle-container');
+        if (subtitleContainer) {
+            subtitleContainer.scrollTop = subtitleContainer.scrollHeight;
+        }
+    }
+
+    function hideSubtitleLocally() {
+        subtitleText = '';
+        showSubtitleContainer = false;
+    }
     let showTextChatContainer = false;
     let chatInputMessage = '';
     let chatMessages: { role: string; content: string }[] = [];
@@ -44,16 +59,6 @@
                 console.warn(message);
             } else {
                 console.log(message);
-            }
-        });
-
-        ipcRenderer.on('update-subtitle', (event, ...args: unknown[]) => {
-            const { text, show } = args[0] as { text: string; show: boolean };
-            subtitleText = text;
-            showSubtitleContainer = show;
-            const subtitleContainer = document.getElementById('subtitle-container');
-            if (subtitleContainer) {
-                subtitleContainer.scrollTop = subtitleContainer.scrollHeight;
             }
         });
 
@@ -154,9 +159,9 @@
             onMouthUpdate: (value) => modelController.setMouthOpenY(value),
             onStart: () => ipcRenderer.send('tts-playing-status', true),
             onEnd: () => ipcRenderer.send('tts-playing-status', false),
-            showSubtitle: (text) => ipcRenderer.send('update-subtitle', { text, show: true }),
-            hideSubtitle: () => ipcRenderer.send('update-subtitle', { text: '', show: false }),
-            ipcRenderer: ipcRenderer, // 新增：传递 ipcRenderer
+            showSubtitle: showSubtitleLocally, // 直接调用本地函数
+            hideSubtitle: hideSubtitleLocally, // 直接调用本地函数
+            ipcRenderer: ipcRenderer,
         });
 
         // 通知主进程 Live2D 模型已加载
@@ -243,7 +248,8 @@
         <p id="subtitle-text"
            class="text-white text-3xl md:text-4xl font-['Patrick_Hand','ZCOOL_QingKe_HuangYou',sans-serif] leading-normal font-extrabold"
            style="text-shadow: -0.5px -0.5px 0 black, 0.5px -0.5px 0 black, -0.5px 0.5px 0 black, 1.5px 1.5px 0 black;">
-            Seraphim: {subtitleText}
+            <!-- Seraphim:  -->
+            {subtitleText}
         </p>
     </div>
 
