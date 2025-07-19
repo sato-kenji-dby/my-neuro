@@ -261,7 +261,9 @@ ${memoryContent}`;
             const needScreenshot = await this.screenshotService.shouldTakeScreenshot(prompt);
             if (needScreenshot) {
                 const screenshotPath = await this.screenshotService.takeScreenshot();
-                screenshotData = await this.screenshotService.imageToBase64(screenshotPath);
+                if (screenshotPath) {
+                    screenshotData = await this.screenshotService.imageToBase64(screenshotPath);
+                }
             }
 
             const fullResponse = await this.llmService.sendToLLM(

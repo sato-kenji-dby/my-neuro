@@ -81,7 +81,9 @@ class AutoChatModule {
                try {
                    console.log("主动对话需要截图");
                    const screenshotPath = await this.screenshotService.takeScreenshot(); // 使用 this.screenshotService
-                   screenshotData = await this.screenshotService.imageToBase64(screenshotPath); // 使用 this.screenshotService
+                   if (screenshotPath) {
+                       screenshotData = await this.screenshotService.imageToBase64(screenshotPath); // 使用 this.screenshotService
+                   }
                } catch (error) {
                    console.error("主动对话截图处理失败:", error);
                    // 截图失败，继续使用纯文本消息

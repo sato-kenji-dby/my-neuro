@@ -424,8 +424,12 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
             const needScreenshot = await live2dAppCore.screenshotService.shouldTakeScreenshot(text);
             if (needScreenshot) {
                 const filepath = await live2dAppCore.screenshotService.takeScreenshot();
-                const base64Image = await live2dAppCore.screenshotService.imageToBase64(filepath);
-                event.sender.send('screenshot-response', base64Image);
+                if (filepath) {
+                    const base64Image = await live2dAppCore.screenshotService.imageToBase64(filepath);
+                    event.sender.send('screenshot-response', base64Image);
+                } else {
+                    event.sender.send('screenshot-response', null);
+                }
             } else {
                 event.sender.send('screenshot-response', null);
             }

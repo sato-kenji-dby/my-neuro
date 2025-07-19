@@ -24,7 +24,7 @@ class ScreenshotService {
     }
 
     // 添加截图功能
-    async takeScreenshot(): Promise<string> {
+    async takeScreenshot(): Promise<string | null> {
         try {
             const image = await this.mainWindow.webContents.capturePage();
             const buffer = image.toPNG();
@@ -35,7 +35,7 @@ class ScreenshotService {
             return filepath;
         } catch (error: unknown) {
             this.logToTerminal('error', `截图错误: ${(error as Error).message}`);
-            throw error;
+            return null;
         }
     }
 
