@@ -173,9 +173,9 @@
             model = await Live2DModel.from("/2D/Hiyori.model3.json"); // 注意路径
             app.stage.addChild(model as unknown as DisplayObject);
 
-            // 确保舞台可交互，并设置交互区域
-            app.stage.interactive = true;
-            app.stage.hitArea = app.screen;
+            // 确保舞台可交互，并设置交互区域 (移除，由模型自身处理)
+            // app.stage.interactive = true;
+            // app.stage.hitArea = app.screen;
 
         } catch (error: unknown) { // 明确指定 error 类型为 unknown
             ipcRenderer.send('log-to-main', { level: 'error', message: `加载Live2D模型错误: ${(error as Error).message}` });
@@ -285,26 +285,26 @@
     <canvas id="canvas" class="fixed top-0 left-0 w-full h-full"></canvas>
 
     <div id="subtitle-container"
-         class="fixed bottom-5 left-1/2 -translate-x-1/2 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap"
+         class="fixed bottom-20 left-1/2 -translate-x-1/2 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto"
          class:hidden={!showSubtitleContainer}>
         <p id="subtitle-text"
-           class="text-white text-3xl md:text-4xl font-['Patrick_Hand','ZCOOL_QingKe_HuangYou',sans-serif] leading-normal font-extrabold"
+           class="text-white text-4xl md:text-5xl font-['Patrick_Hand','ZCOOL_QingKe_HuangYou',sans-serif] leading-normal font-extrabold"
            style="text-shadow: -0.5px -0.5px 0 black, 0.5px -0.5px 0 black, -0.5px 0.5px 0 black, 1.5px 1.5px 0 black;">
-            <!-- Seraphim:  -->
-            {subtitleText}
+            Seraphim: {subtitleText}
         </p>
     </div>
 
     <div id="text-chat-container"
          class="fixed bottom-5 right-5 w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto"
          class:hidden={!showTextChatContainer}>
-        <div id="chat-messages" class="max-h-[300px] overflow-y-auto mb-2 text-white font-['Patrick_Hand',sans-serif]">
+        <!-- 隐藏聊天消息历史，只保留输入框 -->
+        <!-- <div id="chat-messages" class="max-h-[300px] overflow-y-auto mb-2 text-white font-['Patrick_Hand',sans-serif]">
             {#each chatMessages as message}
                 <div>
                     <strong>{message.role === 'user' ? '你' : 'Seraphim'}:</strong> {message.content}
                 </div>
             {/each}
-        </div>
+        </div> -->
         <div id="chat-input-container" class="flex gap-1">
             <input type="text" id="chat-input" placeholder="输入消息..." bind:value={chatInputMessage}
                    on:keypress={(e) => e.key === 'Enter' && handleTextMessage(chatInputMessage)}
@@ -318,9 +318,17 @@
 </div>
 
 <style lang="postcss">
+    #canvas {
+        pointer-events: auto; /* Live2D 模型区域可交互 */
+    }
+    #subtitle-container,
+    #text-chat-container {
+        pointer-events: auto; /* 字幕和聊天框可交互 */
+    }
+
     /* 确保滚动条隐藏 */
     #subtitle-container::-webkit-scrollbar,
-    #chat-messages::-webkit-scrollbar {
+    #chat-messages::-webkit-scrollbar { /* chat-messages 即使隐藏也保留样式 */
         display: none;
     }
     #subtitle-container,

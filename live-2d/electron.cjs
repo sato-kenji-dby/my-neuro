@@ -2,7 +2,7 @@
 // Heartstring Main Process Entry Point
 
 // --- 1. 模块导入 ---
-const { app, session, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
+const { app, session, BrowserWindow, ipcMain, dialog, protocol, screen } = require('electron');
 const path = require('path');
 const url = require('url');
 
@@ -37,9 +37,17 @@ process.on('unhandledRejection', (reason, promise) => {
 let mainWindow;
 
 function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+  const windowWidth = 1200; // 增加 Live2D 模型窗口的宽度
+  const windowHeight = 800; // 增加 Live2D 模型窗口的高度
+  const offsetX = 100; // 向左偏移量
+
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: windowWidth,
+    height: windowHeight,
+    x: width - windowWidth - offsetX, // 放置在右下角，并向左偏移
+    y: height - windowHeight, // 放置在右下角
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'dist-electron/preload.cjs'),
@@ -47,12 +55,15 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true, // Set to true for security
     },
-    transparent: false, // 禁用透明度
-    frame: true, // 显示窗口边框
+    transparent: true, // 启用透明度
+    frame: false, // 禁用窗口边框
+    alwaysOnTop: true, // 保持在最上层 (可选，根据需求)
+    skipTaskbar: true, // 不在任务栏显示图标 (可选，根据需求)
+    backgroundColor: '#00000000', // 设置窗口背景为完全透明
   });
-  // 强制禁用鼠标穿透
-  mainWindow.setIgnoreMouseEvents(false);
-  console.log('[Main Process] 鼠标穿透已在窗口创建时强制禁用。');
+  // 初始设置鼠标穿透，但允许在特定区域捕获事件
+  // mainWindow.setIgnoreMouseEvents(true, { forward: true }); // 暂时注释，在 ready-to-show 后设置
+  // console.log('[Main Process] 鼠标穿透已在窗口创建时初始设置。');
 
   const startUrl = process.env.ELECTRON_START_URL || 'app:///index.html'; // Changed to app:///index.html
 
@@ -63,9 +74,13 @@ function createWindow() {
 
   mainWindow.webContents.once('ready-to-show', () => {
     mainWindow.show();
+    // 在窗口显示后设置鼠标穿透，并允许在特定区域捕获事件
+    mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    console.log('[Main Process] 鼠标穿透已在窗口显示后设置。');
   });
 
-  if (!app.isPackaged) {
+  // 在非打包模式下，如果不是通过 ELECTRON_START_URL 启动的开发模式，则不打开调试工具
+  if (!app.isPackaged && process.env.ELECTRON_START_URL) {
     mainWindow.webContents.openDevTools();
   }
 

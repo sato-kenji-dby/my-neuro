@@ -115,10 +115,18 @@ class ModelInteractionController {
         window.addEventListener('mouseup', this.handleMouseUp);
 
         // 鼠标悬停事件
-        (this.model as any).on('mouseover', () => { /* 无需操作 */ });
+        (this.model as any).on('mouseover', () => {
+            if (this.ipcRenderer) {
+                this.ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
+            }
+        });
 
         // 鼠标离开事件
-        (this.model as any).on('mouseout', () => { /* 无需操作 */ });
+        (this.model as any).on('mouseout', () => {
+            if (this.ipcRenderer) {
+                this.ipcRenderer.send('request-set-ignore-mouse-events', { ignore: true });
+            }
+        });
 
         // 鼠标点击事件
         (this.model as any).on('click', () => { // 类型断言

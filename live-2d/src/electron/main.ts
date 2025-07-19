@@ -61,9 +61,9 @@ class Live2DAppCore {
     }
 
     // 更新鼠标穿透状态
-    // private updateMouseIgnore(shouldIgnore: boolean) {
-    //     this.mainWindow.setIgnoreMouseEvents(shouldIgnore, { forward: true });
-    // }
+    private updateMouseIgnore(shouldIgnore: boolean) {
+        this.mainWindow.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+    }
 
     // 将弹幕添加到队列
     public addToBarrageQueue(nickname: string, text: string) {
@@ -147,9 +147,9 @@ class Live2DAppCore {
         });
 
         // 监听渲染进程的鼠标穿透状态更新请求
-        // ipcMain.on('request-set-ignore-mouse-events', (_, { ignore }) => {
-        //     this.updateMouseIgnore(ignore);
-        // });
+        ipcMain.on('request-set-ignore-mouse-events', (_, { ignore }) => {
+            this.updateMouseIgnore(ignore);
+        });
 
         // 监听渲染进程发送的已识别语音
         ipcMain.on('speech-recognized', (_, text: string) => {
@@ -383,10 +383,6 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
         }
     });
 
-
-    ipcMain.on('set-ignore-mouse-events', (_, { ignore, options }) => {
-        mainWindow.setIgnoreMouseEvents(ignore, options);
-    });
 
     ipcMain.on('request-screenshot', async (event, { text }) => { // 接收 text 参数用于 shouldTakeScreenshot
         try {
