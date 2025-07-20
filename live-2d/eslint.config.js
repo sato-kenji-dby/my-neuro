@@ -12,8 +12,9 @@ export default [
       'release/',
       'build/',
       'electron.cjs',
-      "static/",
-      "bak/"
+      'static/',
+      'bak/',
+      'config*.json',
     ],
   },
   ...tseslint.configs.recommended,

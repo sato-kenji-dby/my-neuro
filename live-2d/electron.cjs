@@ -2,7 +2,15 @@
 // Heartstring Main Process Entry Point
 
 // --- 1. 模块导入 ---
-const { app, session, BrowserWindow, ipcMain, dialog, protocol, screen } = require('electron');
+const {
+  app,
+  session,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  protocol,
+  screen,
+} = require('electron');
 const path = require('path');
 const url = require('url');
 
@@ -113,7 +121,7 @@ app.on('ready', async () => {
   //     proxyBypassRules: '<local>', // 绕过本地地址
   //   });
   //   console.log(`[Main Process] Proxy rules set to: ${proxyUrl}`);
-    
+
   //   // 注意：不要在这里用主进程的fetch/axios来测试。
   //   // setProxy的验证，应该通过观察渲染进程中的网络请求是否成功来进行。
 

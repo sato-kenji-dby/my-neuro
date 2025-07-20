@@ -1,175 +1,198 @@
 // MCP客户端模块 - 集成到AI桌宠系统
 class MCPClientModule {
-    config: any;
-    ttsProcessor: any;
-    isEnabled: boolean;
-    serverUrl: string;
-    isConnected: boolean;
-    availableTools: any[];
-    sessionId: string;
-    serverInfo: any;
+  config: any;
+  ttsProcessor: any;
+  isEnabled: boolean;
+  serverUrl: string;
+  isConnected: boolean;
+  availableTools: any[];
+  sessionId: string;
+  serverInfo: any;
 
-    constructor(config: any, ttsProcessor: any) { // 添加参数类型
-        // 保存配置和依赖项
-        this.config = config.mcp || {};
-        this.ttsProcessor = ttsProcessor;
-        this.isEnabled = this.config.enabled || false;
-        this.serverUrl = this.config.server_url || 'http://localhost:3000';
-        
-        // 状态标志
-        this.isConnected = false;
-        this.availableTools = [];
-        this.sessionId = this.generateSessionId();
-        
-        console.log(`MCP客户端模块已创建，启用状态: ${this.isEnabled}`);
+  constructor(config: any, ttsProcessor: any) {
+    // 添加参数类型
+    // 保存配置和依赖项
+    this.config = config.mcp || {};
+    this.ttsProcessor = ttsProcessor;
+    this.isEnabled = this.config.enabled || false;
+    this.serverUrl = this.config.server_url || 'http://localhost:3000';
+
+    // 状态标志
+    this.isConnected = false;
+    this.availableTools = [];
+    this.sessionId = this.generateSessionId();
+
+    console.log(`MCP客户端模块已创建，启用状态: ${this.isEnabled}`);
+  }
+
+  // 初始化模块
+  async initialize(): Promise<boolean> {
+    // 添加返回类型
+    if (!this.isEnabled) {
+      console.log('MCP功能已禁用，不进行初始化');
+      return false;
     }
-    
-    // 初始化模块
-    async initialize(): Promise<boolean> { // 添加返回类型
-        if (!this.isEnabled) {
-            console.log('MCP功能已禁用，不进行初始化');
-            return false;
-        }
-        
-        console.log('正在初始化MCP客户端模块...');
-        return await this.discoverMCPTools();
+
+    console.log('正在初始化MCP客户端模块...');
+    return await this.discoverMCPTools();
+  }
+
+  // 发现可用的MCP工具
+  async discoverMCPTools(): Promise<boolean> {
+    // 添加返回类型
+    try {
+      console.log(`尝试连接MCP服务器: ${this.serverUrl}/mcp/v1/discover`);
+
+      const response = await fetch(`${this.serverUrl}/mcp/v1/discover`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: this.sessionId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP错误: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // 保存可用工具列表
+      this.availableTools = data.functions || [];
+      this.serverInfo = data.server || { name: '未知MCP服务器' };
+      this.isConnected = true;
+
+      console.log(`已连接到MCP服务器: ${this.serverInfo.name}`);
+      console.log(
+        `可用工具(${this.availableTools.length}): ${this.availableTools.map((t: any) => t.name).join(', ')}`
+      ); // 添加 t 类型
+
+      return true;
+    } catch (error) {
+      console.error('MCP服务器连接失败:', error);
+      this.isConnected = false;
+      return false;
     }
-    
-    // 发现可用的MCP工具
-    async discoverMCPTools(): Promise<boolean> { // 添加返回类型
-        try {
-            console.log(`尝试连接MCP服务器: ${this.serverUrl}/mcp/v1/discover`);
-            
-            const response = await fetch(`${this.serverUrl}/mcp/v1/discover`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: this.sessionId
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            // 保存可用工具列表
-            this.availableTools = data.functions || [];
-            this.serverInfo = data.server || { name: "未知MCP服务器" };
-            this.isConnected = true;
-            
-            console.log(`已连接到MCP服务器: ${this.serverInfo.name}`);
-            console.log(`可用工具(${this.availableTools.length}): ${this.availableTools.map((t: any) => t.name).join(', ')}`); // 添加 t 类型
-            
-            return true;
-        } catch (error) {
-            console.error('MCP服务器连接失败:', error);
-            this.isConnected = false;
-            return false;
-        }
+  }
+
+  // 获取工具列表，用于传递给LLM
+  getToolsForLLM(): any[] {
+    // 添加返回类型
+    if (
+      !this.isEnabled ||
+      !this.isConnected ||
+      this.availableTools.length === 0
+    ) {
+      return [];
     }
-    
-    // 获取工具列表，用于传递给LLM
-    getToolsForLLM(): any[] { // 添加返回类型
-        if (!this.isEnabled || !this.isConnected || this.availableTools.length === 0) {
-            return [];
-        }
-        
-        return this.availableTools.map((tool: any) => ({ // 添加 tool 类型
-            type: "function",
-            function: {
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.parameters
-            }
-        }));
+
+    return this.availableTools.map((tool: any) => ({
+      // 添加 tool 类型
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      },
+    }));
+  }
+
+  // 处理LLM返回的工具调用
+  async handleToolCalls(toolCalls: any[]): Promise<any> {
+    // 添加 toolCalls 参数类型和返回类型
+    if (
+      !this.isEnabled ||
+      !this.isConnected ||
+      !toolCalls ||
+      toolCalls.length === 0
+    ) {
+      return null;
     }
-    
-    // 处理LLM返回的工具调用
-    async handleToolCalls(toolCalls: any[]): Promise<any> { // 添加 toolCalls 参数类型和返回类型
-        if (!this.isEnabled || !this.isConnected || !toolCalls || toolCalls.length === 0) {
-            return null;
-        }
-        
-        const toolCall = toolCalls[0]; // 处理第一个工具调用
-        const functionName = toolCall.function.name;
-        
-        // 解析参数
-        let parameters: any; // 添加 parameters 类型
-        try {
-            parameters = typeof toolCall.function.arguments === 'string'
-                ? JSON.parse(toolCall.function.arguments)
-                : toolCall.function.arguments;
-        } catch (error) {
-            console.error('解析工具参数错误:', error);
-            parameters = {};
-        }
-        
-        // 调用MCP工具
-        return await this.invokeFunction(functionName, parameters);
+
+    const toolCall = toolCalls[0]; // 处理第一个工具调用
+    const functionName = toolCall.function.name;
+
+    // 解析参数
+    let parameters: any; // 添加 parameters 类型
+    try {
+      parameters =
+        typeof toolCall.function.arguments === 'string'
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function.arguments;
+    } catch (error) {
+      console.error('解析工具参数错误:', error);
+      parameters = {};
     }
-    
+
     // 调用MCP工具
-    async invokeFunction(functionName: string, parameters: any): Promise<any> { // 添加参数类型和返回类型
-        if (!this.isEnabled || !this.isConnected) {
-            console.error('MCP功能未启用或未连接到服务器');
-            return null;
-        }
-        
-        // 查找工具是否存在
-        const tool = this.availableTools.find((t: any) => t.name === functionName); // 添加 t 类型
-        if (!tool) {
-            console.error(`未找到MCP工具: ${functionName}`);
-            return null;
-        }
-        
-        try {
-            console.log(`调用MCP工具: ${functionName}，参数:`, parameters);
-            
-            const response = await fetch(`${this.serverUrl}/mcp/v1/invoke`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    session_id: this.sessionId,
-                    name: functionName,
-                    parameters: parameters
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP错误: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log(`MCP工具(${functionName})返回:`, data);
-            
-            // 处理返回结果
-            return data.result?.content || JSON.stringify(data.result);
-        } catch (error) {
-            console.error(`MCP工具调用失败(${functionName}):`, error);
-            return null;
-        }
+    return await this.invokeFunction(functionName, parameters);
+  }
+
+  // 调用MCP工具
+  async invokeFunction(functionName: string, parameters: any): Promise<any> {
+    // 添加参数类型和返回类型
+    if (!this.isEnabled || !this.isConnected) {
+      console.error('MCP功能未启用或未连接到服务器');
+      return null;
     }
-    
-    // 生成唯一会话ID
-    generateSessionId(): string { // 添加返回类型
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+
+    // 查找工具是否存在
+    const tool = this.availableTools.find((t: any) => t.name === functionName); // 添加 t 类型
+    if (!tool) {
+      console.error(`未找到MCP工具: ${functionName}`);
+      return null;
     }
-    
-    // 停止MCP客户端
-    stop() {
-        this.isConnected = false;
-        console.log('MCP客户端已停止');
+
+    try {
+      console.log(`调用MCP工具: ${functionName}，参数:`, parameters);
+
+      const response = await fetch(`${this.serverUrl}/mcp/v1/invoke`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: this.sessionId,
+          name: functionName,
+          parameters: parameters,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP错误: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`MCP工具(${functionName})返回:`, data);
+
+      // 处理返回结果
+      return data.result?.content || JSON.stringify(data.result);
+    } catch (error) {
+      console.error(`MCP工具调用失败(${functionName}):`, error);
+      return null;
     }
+  }
+
+  // 生成唯一会话ID
+  generateSessionId(): string {
+    // 添加返回类型
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
+  }
+
+  // 停止MCP客户端
+  stop() {
+    this.isConnected = false;
+    console.log('MCP客户端已停止');
+  }
 }
 
 export { MCPClientModule }; // 转换为 ESM 风格

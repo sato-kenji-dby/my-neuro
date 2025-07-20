@@ -1,0 +1,14 @@
+# Ignore build output and node modules
+.svelte-kit/
+dist-electron/
+release/
+build/
+node_modules/
+
+
+# Ignore other folders
+static/
+
+# Legacy
+bak/
+server-tools/
