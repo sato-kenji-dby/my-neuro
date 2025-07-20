@@ -14,6 +14,12 @@
     let showSubtitleContainer = false;
     let typewriterInterval: NodeJS.Timeout | null = null;
     
+    // 待办事项内容
+    let todoContent = `- [ ] 完成 Live2D 模型优化
+- [ ] 调试 ASR 模块
+- [ ] 增加更多情绪动作
+- [x] 添加待办事项板和专注模式按钮`;
+
     // 直接在 Svelte 组件中定义字幕控制函数
     function showSubtitleLocally(text: string, duration: number, wasTranslated: boolean) {
         const prefix = wasTranslated ? '' : '';
@@ -65,6 +71,16 @@
     let showTextChatContainer = false;
     let chatInputMessage = '';
     let chatMessages: { role: string; content: string }[] = [];
+
+    // 新增的专注模式状态和函数
+    let isFocusMode = false;
+
+    function toggleFocusMode() {
+        isFocusMode = !isFocusMode;
+        console.log(`专注模式已${isFocusMode ? '开启' : '关闭'}`);
+        // 这里可以添加更多专注模式的逻辑，例如隐藏其他UI元素，调整模型行为等
+        // 暂时只做日志输出
+    }
 
     // PIXI 和 Live2D 实例
     let app: Application;
@@ -291,9 +307,10 @@
             });
         }
 
-        // 应用拖动功能到字幕和聊天框
+        // 应用拖动功能到字幕、聊天框和新的顶部居中控制容器
         makeDraggable('subtitle-container');
         makeDraggable('text-chat-container');
+        makeDraggable('top-center-controls'); // 新增
     });
 
     onDestroy(() => {
@@ -338,8 +355,29 @@
 <div class="relative w-screen h-screen overflow-hidden">
     <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
 
+    <!-- 新增的待办事项板和专注模式按钮容器 -->
+    <div id="top-center-controls"
+         class="p-4 z-50 pointer-events-auto cursor-grab flex flex-col items-center space-y-4">
+        <!-- 待办事项板 -->
+        <div id="todo-board"
+             class="bg-black bg-opacity-70 rounded-lg p-4 w-[350px] max-h-[300px] overflow-y-auto text-white font-['Patrick_Hand',sans-serif]">
+            <h2 class="text-xl font-bold mb-2 text-center">待办事项</h2>
+            <textarea bind:value={todoContent}
+                      class="w-full h-full p-2 rounded-md border-none bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      placeholder="输入你的待办事项 (Markdown 风格)">
+            </textarea>
+        </div>
+
+        <!-- 专注模式按钮 -->
+        <button id="focus-mode-button"
+                on:click={toggleFocusMode}
+                class="px-6 py-3 rounded-full bg-blue-600 text-white text-lg font-bold shadow-lg hover:bg-blue-700 transition-colors duration-200">
+            开始专注模式
+        </button>
+    </div>
+
     <div id="subtitle-container"
-         class="absolute bottom-5 right-5 max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto cursor-grab"
+         class="max-w-[80%] max-h-[300px] p-2 md:p-5 rounded-lg z-50 text-center overflow-hidden break-words whitespace-pre-wrap pointer-events-auto cursor-grab"
          class:hidden={!showSubtitleContainer}>
         <p id="subtitle-text"
            class="text-white text-4xl md:text-5xl font-['Patrick_Hand','ZCOOL_QingKe_HuangYou',sans-serif] leading-normal font-extrabold"
@@ -349,7 +387,7 @@
     </div>
 
     <div id="text-chat-container"
-         class="absolute bottom-5 right-5 w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto cursor-grab"
+         class="w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto cursor-grab"
          class:hidden={!showTextChatContainer}>
         <!-- 隐藏聊天消息历史，只保留输入框 -->
         <!-- <div id="chat-messages" class="max-h-[300px] overflow-y-auto mb-2 text-white font-['Patrick_Hand',sans-serif]">
@@ -382,11 +420,27 @@
         z-index: 0; /* 确保 canvas 在底层 */
         background: transparent;
     }
-    #subtitle-container,
+    #top-center-controls {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    #subtitle-container {
+        position: absolute;
+        bottom: 250px; /* 调整位置，使其在聊天框上方，更靠近右下角 */
+        right: 20px; /* 对应 right-5 */
+        pointer-events: auto;
+        z-index: 10;
+    }
+
     #text-chat-container {
         position: absolute;
-        pointer-events: auto; /* 字幕和聊天框可交互 */
-        z-index: 10; /* 确保在 canvas 上方 */
+        bottom: 20px; /* 对应 bottom-5 */
+        right: 20px; /* 对应 right-5 */
+        pointer-events: auto;
+        z-index: 10;
     }
 
     /* 确保滚动条隐藏 */
