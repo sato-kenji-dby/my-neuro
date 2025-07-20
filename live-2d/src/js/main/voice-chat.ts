@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import type { Live2DModel } from 'pixi-live2d-display'; // 导入 Live2DModel 类型
 import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型
 import type { EmotionMotionMapper } from '../renderer/emotion-motion-mapper'; // 导入 EmotionMotionMapper 类型

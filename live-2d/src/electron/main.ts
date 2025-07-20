@@ -1,13 +1,4 @@
-import { app, session, BrowserWindow, ipcMain, dialog } from 'electron';
-import * as path from 'path';
-import * as fs from 'fs';
-import axios from 'axios';
-import { SocksProxyAgent } from 'socks-proxy-agent';
-import {
-  GoogleGenAI,
-  createUserContent,
-  createPartFromUri,
-} from '@google/genai';
+import { BrowserWindow, ipcMain } from 'electron';
 
 // 导入 Live2D 相关的模块
 import { TTSProcessor } from '$js/main/tts-processor';
@@ -315,95 +306,95 @@ class Live2DAppCore {
  * 初始化所有核心服务和IPC处理器。
  * 这个函数将在 Electron app ready 后被调用。
  */
-async function diagnoseNetwork(config: any) {
-  console.log('[Network Diagnosis] Starting network diagnosis...');
-  try {
-    // 1. Test general internet connectivity
-    console.log(
-      '[Network Diagnosis] Testing connection to https://www.google.com...'
-    );
-    const googleResponse = await axios.get('https://www.google.com', {
-      timeout: 15000,
-    });
-    console.log(
-      `[Network Diagnosis] Connection to Google.com successful, status: ${googleResponse.status}`
-    );
-  } catch (error: any) {
-    console.error(
-      `[Network Diagnosis] Failed to connect to Google.com: ${error.message}`
-    );
-  }
+// async function diagnoseNetwork(config: any) {
+//   console.log('[Network Diagnosis] Starting network diagnosis...');
+//   try {
+//     // 1. Test general internet connectivity
+//     console.log(
+//       '[Network Diagnosis] Testing connection to https://www.google.com...'
+//     );
+//     const googleResponse = await axios.get('https://www.google.com', {
+//       timeout: 15000,
+//     });
+//     console.log(
+//       `[Network Diagnosis] Connection to Google.com successful, status: ${googleResponse.status}`
+//     );
+//   } catch (error: any) {
+//     console.error(
+//       `[Network Diagnosis] Failed to connect to Google.com: ${error.message}`
+//     );
+//   }
 
-  console.log('[Network Diagnosis] Starting network diagnosis...');
-  try {
-    // 1. Test general internet connectivity
-    console.log(
-      '[Network Diagnosis] Testing connection to https://www.baidu.com...'
-    );
-    const googleResponse = await axios.get('https://www.baidu.com', {
-      timeout: 15000,
-    });
-    console.log(
-      `[Network Diagnosis] Connection to baidu.com successful, status: ${googleResponse.status}`
-    );
-  } catch (error: any) {
-    console.error(
-      `[Network Diagnosis] Failed to connect to baidu.com: ${error.message}`
-    );
-  }
+//   console.log('[Network Diagnosis] Starting network diagnosis...');
+//   try {
+//     // 1. Test general internet connectivity
+//     console.log(
+//       '[Network Diagnosis] Testing connection to https://www.baidu.com...'
+//     );
+//     const googleResponse = await axios.get('https://www.baidu.com', {
+//       timeout: 15000,
+//     });
+//     console.log(
+//       `[Network Diagnosis] Connection to baidu.com successful, status: ${googleResponse.status}`
+//     );
+//   } catch (error: any) {
+//     console.error(
+//       `[Network Diagnosis] Failed to connect to baidu.com: ${error.message}`
+//     );
+//   }
 
-  try {
-    // 2. Test connection to the Google AI API endpoint
-    const apiKey = config.llm.api_key;
-    if (!apiKey) {
-      console.error(
-        '[Network Diagnosis] Google AI API key is missing in config.json.'
-      );
-      return;
-    }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-    console.log(
-      `[Network Diagnosis] Testing connection to Google AI endpoint...`
-    );
+//   try {
+//     // 2. Test connection to the Google AI API endpoint
+//     const apiKey = config.llm.api_key;
+//     if (!apiKey) {
+//       console.error(
+//         '[Network Diagnosis] Google AI API key is missing in config.json.'
+//       );
+//       return;
+//     }
+//     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+//     console.log(
+//       `[Network Diagnosis] Testing connection to Google AI endpoint...`
+//     );
 
-    await axios.post(
-      url,
-      {},
-      {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 15000,
-      }
-    );
-    // We expect a 400-range error for an empty request, but a connection means success here.
-    console.log(
-      '[Network Diagnosis] Connection to Google AI endpoint seems successful (received a response).'
-    );
-  } catch (error: any) {
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        // Received a response, which is good. It means the connection is working.
-        console.log(
-          `[Network Diagnosis] Connection to Google AI endpoint successful with status: ${error.response.status}. This is expected.`
-        );
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error(
-          `[Network Diagnosis] Failed to connect to Google AI endpoint. No response received. Error: ${error.message}`
-        );
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error(
-          `[Network Diagnosis] Error setting up request to Google AI endpoint: ${error.message}`
-        );
-      }
-    } else {
-      console.error(
-        `[Network Diagnosis] An unexpected error occurred while testing Google AI endpoint: ${error.message}`
-      );
-    }
-  }
-  console.log('[Network Diagnosis] Network diagnosis finished.');
-}
+//     await axios.post(
+//       url,
+//       {},
+//       {
+//         headers: { 'Content-Type': 'application/json' },
+//         timeout: 15000,
+//       }
+//     );
+//     // We expect a 400-range error for an empty request, but a connection means success here.
+//     console.log(
+//       '[Network Diagnosis] Connection to Google AI endpoint seems successful (received a response).'
+//     );
+//   } catch (error: any) {
+//     if (axios.isAxiosError(error)) {
+//       if (error.response) {
+//         // Received a response, which is good. It means the connection is working.
+//         console.log(
+//           `[Network Diagnosis] Connection to Google AI endpoint successful with status: ${error.response.status}. This is expected.`
+//         );
+//       } else if (error.request) {
+//         // The request was made but no response was received
+//         console.error(
+//           `[Network Diagnosis] Failed to connect to Google AI endpoint. No response received. Error: ${error.message}`
+//         );
+//       } else {
+//         // Something happened in setting up the request that triggered an Error
+//         console.error(
+//           `[Network Diagnosis] Error setting up request to Google AI endpoint: ${error.message}`
+//         );
+//       }
+//     } else {
+//       console.error(
+//         `[Network Diagnosis] An unexpected error occurred while testing Google AI endpoint: ${error.message}`
+//       );
+//     }
+//   }
+//   console.log('[Network Diagnosis] Network diagnosis finished.');
+// }
 
 export async function initializeMainProcess(mainWindow: BrowserWindow) {
   try {

@@ -161,7 +161,7 @@ class ASRProcessor {
 
     if (this.isRecording) {
       const currentTime = Date.now();
-      const silenceDuration = currentTime - this.lastSpeechTime;
+      // const silenceDuration = currentTime - this.lastSpeechTime;
 
       if (!this.silenceTimeout) {
         this.silenceTimeout = setTimeout(() => {
