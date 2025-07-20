@@ -226,13 +226,15 @@
         ipcRenderer.send('live2d-model-ready', 2.3);
 
         // 根据开发模式设置鼠标穿透
-        if (process.env.ELECTRON_START_URL) { // 如果是开发模式
-            ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
-            ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：开发模式下禁用鼠标穿透。' });
-        } else {
-            ipcRenderer.send('request-set-ignore-mouse-events', { ignore: true });
-            ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：生产模式下启用鼠标穿透。' });
-        }
+        // if (process.env.ELECTRON_START_URL) { // 如果是开发模式
+        //     ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
+        //     ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：开发模式下禁用鼠标穿透。' });
+        // } else {
+        //     ipcRenderer.send('request-set-ignore-mouse-events', { ignore: true });
+        //     ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：生产模式下启用鼠标穿透。' });
+        // }
+        ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
+        ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：已禁用鼠标穿透。' });
 
         // 初始化 ASR
         try {
@@ -353,7 +355,7 @@
 </svelte:head>
 
 <div class="relative w-screen h-screen overflow-hidden">
-    <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+    <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"  style="background-image: url('/bg/bg.jpg'); background-size: cover; background-position: center;"></canvas>
 
     <!-- 新增的待办事项板和专注模式按钮容器 -->
     <div id="top-center-controls"
