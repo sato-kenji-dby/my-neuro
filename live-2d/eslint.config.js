@@ -12,7 +12,8 @@ export default [
       'release/',
       'build/',
       'electron.cjs',
-      'src/services/audio/__tests__/AudioService.spec.ts',
+      "static/",
+      "bak/"
     ],
   },
   ...tseslint.configs.recommended,
