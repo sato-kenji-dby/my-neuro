@@ -362,10 +362,10 @@
          class="p-4 z-50 pointer-events-auto cursor-grab flex flex-col items-center space-y-4">
         <!-- 待办事项板 -->
         <div id="todo-board"
-             class="bg-black bg-opacity-70 rounded-lg p-4 w-[350px] max-h-[300px] overflow-y-auto text-white font-['Patrick_Hand',sans-serif]">
-            <h2 class="text-xl font-bold mb-2 text-center">待办事项</h2>
+             class="bg-slate-900/70 backdrop-blur-sm rounded-xl p-4 w-96 max-h-80 text-slate-100 font-sans shadow-lg border border-slate-700">
+            <h2 class="text-xl font-bold mb-3 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">待办事项</h2>
             <textarea bind:value={todoContent}
-                      class="w-full h-full p-2 rounded-md border-none bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      class="w-full h-48 p-3 rounded-lg border-2 border-slate-700 bg-slate-800/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition-all duration-300"
                       placeholder="输入你的待办事项 (Markdown 风格)">
             </textarea>
         </div>
@@ -389,22 +389,16 @@
     </div>
 
     <div id="text-chat-container"
-         class="w-[300px] max-h-[400px] bg-black bg-opacity-70 rounded-lg p-2 md:p-3 z-50 pointer-events-auto cursor-grab"
+         class="w-80 max-h-[400px] bg-slate-900/70 backdrop-blur-sm rounded-xl p-3 z-50 pointer-events-auto cursor-grab shadow-lg border border-slate-700 transition-opacity duration-300"
+         class:opacity-0={!showTextChatContainer}
          class:hidden={!showTextChatContainer}>
         <!-- 隐藏聊天消息历史，只保留输入框 -->
-        <!-- <div id="chat-messages" class="max-h-[300px] overflow-y-auto mb-2 text-white font-['Patrick_Hand',sans-serif]">
-            {#each chatMessages as message}
-                <div>
-                    <strong>{message.role === 'user' ? '你' : 'Seraphim'}:</strong> {message.content}
-                </div>
-            {/each}
-        </div> -->
-        <div id="chat-input-container" class="flex gap-1">
+        <div id="chat-input-container" class="flex items-center gap-2">
             <input type="text" id="chat-input" placeholder="输入消息..." bind:value={chatInputMessage}
                    on:keypress={(e) => e.key === 'Enter' && handleTextMessage(chatInputMessage)}
-                   class="flex-1 p-1 rounded-md border-none bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                   class="flex-1 py-2 px-3 rounded-full border-2 border-slate-700 bg-slate-800/80 text-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300">
             <button id="chat-send-btn" on:click={() => handleTextMessage(chatInputMessage)}
-                    class="px-2 py-1 rounded-md border-none bg-green-600 text-white cursor-pointer hover:bg-green-700">
+                    class="px-4 py-2 rounded-full border-none bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold cursor-pointer hover:from-green-600 hover:to-teal-600 transition-all duration-300 transform hover:scale-105">
                 发送
             </button>
         </div>
@@ -412,6 +406,10 @@
 </div>
 
 <style lang="postcss">
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+
     #canvas {
         position: absolute;
         top: 0;

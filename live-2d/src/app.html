@@ -13,23 +13,10 @@
     %sveltekit.head%
     <style>
       html, body {
-        /* 在开发模式下，背景不透明，且鼠标事件不穿透 */
-        /* 在生产模式下，背景透明，且鼠标事件穿透 */
-        background-color: var(--app-background-color, transparent) !important;
-        pointer-events: var(--app-pointer-events, none);
+        background-color: transparent !important;
         overflow: hidden; /* 防止滚动条 */
       }
     </style>
-    <script>
-      // 根据开发模式设置CSS变量
-      if (window.appInfo.isDevelopment) {
-        document.documentElement.style.setProperty('--app-background-color', 'initial'); // 恢复默认背景
-        document.documentElement.style.setProperty('--app-pointer-events', 'auto'); // 允许鼠标事件
-      } else {
-        document.documentElement.style.setProperty('--app-background-color', 'transparent');
-        document.documentElement.style.setProperty('--app-pointer-events', 'none');
-      }
-    </script>
   </head>
   <body
     data-sveltekit-preload-data="hover"
