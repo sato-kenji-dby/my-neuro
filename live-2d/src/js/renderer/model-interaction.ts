@@ -1,9 +1,9 @@
 import type { Live2DModel } from 'pixi-live2d-display';
-import type { Application } from 'pixi.js';
+import type { Application, InteractionEvent } from 'pixi.js';
 
 // 定义一个只包含我们需要的 ipcRenderer 方法的接口
 interface MinimalIpcRenderer {
-  send(channel: string, ...args: any[]): void;
+  send(channel: string, ...args: unknown[]): void;
 }
 
 class ModelInteractionController {
@@ -34,14 +34,12 @@ class ModelInteractionController {
   updateInteractionArea() {
     if (!this.model) return;
 
-    this.interactionWidth = (this.model as any).width / 3; // 类型断言
-    this.interactionHeight = (this.model as any).height * 0.7; // 类型断言
+    this.interactionWidth = this.model.width / 3;
+    this.interactionHeight = this.model.height * 0.7;
     this.interactionX =
-      (this.model as any).x +
-      ((this.model as any).width - this.interactionWidth) / 2; // 类型断言
+      this.model.x + (this.model.width - this.interactionWidth) / 2;
     this.interactionY =
-      (this.model as any).y +
-      ((this.model as any).height - this.interactionHeight) / 2; // 类型断言
+      this.model.y + (this.model.height - this.interactionHeight) / 2;
   }
 
   // 鼠标释放事件处理
@@ -54,30 +52,29 @@ class ModelInteractionController {
     if (
       this.model &&
       this.app &&
-      (this.model as any).containsPoint(
+      this.model.containsPoint(
         this.app.renderer.plugins.interaction.mouse.global
       )
     ) {
-      // 类型断言
       e.preventDefault();
 
       const scaleChange = e.deltaY > 0 ? 0.9 : 1.1;
-      const currentScale = (this.model as any).scale.x; // 类型断言
+      const currentScale = this.model.scale.x;
       const newScale = currentScale * scaleChange;
 
-      const minScale = (this.model as any).scale.x * 0.3; // 类型断言
-      const maxScale = (this.model as any).scale.x * 3.0; // 类型断言
+      const minScale = this.model.scale.x * 0.3;
+      const maxScale = this.model.scale.x * 3.0;
 
       if (newScale >= minScale && newScale <= maxScale) {
-        (this.model as any).scale.set(newScale); // 类型断言
+        this.model.scale.set(newScale);
 
-        const oldWidth = (this.model as any).width / scaleChange; // 类型断言
-        const oldHeight = (this.model as any).height / scaleChange; // 类型断言
-        const deltaWidth = (this.model as any).width - oldWidth; // 类型断言
-        const deltaHeight = (this.model as any).height - oldHeight; // 类型断言
+        const oldWidth = this.model.width / scaleChange;
+        const oldHeight = this.model.height / scaleChange;
+        const deltaWidth = this.model.width - oldWidth;
+        const deltaHeight = this.model.height - oldHeight;
 
-        (this.model as any).x -= deltaWidth / 2; // 类型断言
-        (this.model as any).y -= deltaHeight / 2; // 类型断言
+        this.model.x -= deltaWidth / 2;
+        this.model.y -= deltaHeight / 2;
         this.updateInteractionArea();
       }
     }
@@ -100,27 +97,24 @@ class ModelInteractionController {
   setupInteractivity() {
     if (!this.model || !this.app) return; // 确保 model 和 app 都存在
 
-    (this.model as any).interactive = true; // 类型断言
+    this.model.interactive = true;
 
     // 鼠标按下事件
-    (this.model as any).on('mousedown', (e: any) => {
-      // 类型断言
+    this.model.on('mousedown', (e: InteractionEvent) => {
       const point = e.data.global;
-      if (this.model && (this.model as any).containsPoint(point)) {
-        // 类型断言
+      if (this.model && this.model.containsPoint(point)) {
         this.isDragging = true;
-        this.dragOffset.x = point.x - (this.model as any).x; // 类型断言
-        this.dragOffset.y = point.y - (this.model as any).y; // 类型断言
+        this.dragOffset.x = point.x - this.model.x;
+        this.dragOffset.y = point.y - this.model.y;
       }
     });
 
     // 鼠标移动事件
-    (this.model as any).on('mousemove', (e: any) => {
-      // 类型断言
+    this.model.on('mousemove', (e: InteractionEvent) => {
       if (this.isDragging) {
         const newX = e.data.global.x - this.dragOffset.x;
         const newY = e.data.global.y - this.dragOffset.y;
-        (this.model as any).position.set(newX, newY); // 类型断言
+        this.model?.position.set(newX, newY);
         this.updateInteractionArea();
       }
     });
@@ -129,7 +123,7 @@ class ModelInteractionController {
     window.addEventListener('mouseup', this.handleMouseUp);
 
     // 鼠标悬停事件
-    (this.model as any).on('mouseover', () => {
+    this.model.on('mouseover', () => {
       if (this.ipcRenderer && !window.appInfo.isDevelopment) {
         // 仅在非开发模式下发送
         this.ipcRenderer.send('request-set-ignore-mouse-events', {
@@ -139,7 +133,7 @@ class ModelInteractionController {
     });
 
     // 鼠标离开事件
-    (this.model as any).on('mouseout', () => {
+    this.model.on('mouseout', () => {
       if (this.ipcRenderer && !window.appInfo.isDevelopment) {
         // 仅在非开发模式下发送
         this.ipcRenderer.send('request-set-ignore-mouse-events', {
@@ -149,19 +143,17 @@ class ModelInteractionController {
     });
 
     // 鼠标点击事件
-    (this.model as any).on('click', () => {
-      // 类型断言
+    this.model.on('click', () => {
       if (
         this.model &&
         this.app &&
-        (this.model as any).containsPoint(
+        this.model.containsPoint(
           this.app.renderer.plugins.interaction.mouse.global
         ) &&
-        (this.model as any).internalModel
+        this.model.internalModel
       ) {
-        // 类型断言
-        (this.model as any).motion('Tap'); // 类型断言
-        (this.model as any).expression(); // 类型断言
+        this.model.motion?.('Tap');
+        this.model.expression?.();
 
         // 新增：通过 IPC 通知主进程模型被点击
         if (this.ipcRenderer) {
@@ -187,11 +179,14 @@ class ModelInteractionController {
       const paramId = 'ParamMouthOpenY';
       if (
         this.model &&
-        (this.model as any).internalModel &&
-        (this.model as any).internalModel.coreModel
+        this.model.internalModel &&
+        this.model.internalModel.coreModel
       ) {
-        // 添加空值检查和类型断言
-        const coreModel: any = (this.model as any).internalModel.coreModel; // 类型断言为 any
+        const coreModel: InstanceType<
+          Window['Live2DCubismCore']['Live2DModel']
+        > = this.model.internalModel.coreModel as InstanceType<
+          Window['Live2DCubismCore']['Live2DModel']
+        >;
         coreModel.setParameterValueById(paramId, v);
       }
     } catch (error) {
@@ -203,11 +198,11 @@ class ModelInteractionController {
   destroy() {
     if (this.model) {
       // 移除 PIXI 模型的事件监听器
-      (this.model as any).off('mousedown');
-      (this.model as any).off('mousemove');
-      (this.model as any).off('mouseover');
-      (this.model as any).off('mouseout');
-      (this.model as any).off('click');
+      this.model.off('mousedown');
+      this.model.off('mousemove');
+      this.model.off('mouseover');
+      this.model.off('mouseout');
+      this.model.off('click');
     }
     // 移除全局 window 事件监听器
     window.removeEventListener('mouseup', this.handleMouseUp);
@@ -226,16 +221,14 @@ class ModelInteractionController {
 
     // 计算一个合适的初始缩放，使模型可见
     const initialScale = Math.min(
-      (window.innerWidth * scaleMultiplier) / (this.model as any).width,
-      (window.innerHeight * scaleMultiplier) / (this.model as any).height
+      (window.innerWidth * scaleMultiplier) / this.model.width,
+      (window.innerHeight * scaleMultiplier) / this.model.height
     );
-    (this.model as any).scale.set(initialScale); // 类型断言
+    this.model.scale.set(initialScale);
 
     // 将模型放置在屏幕中央
-    (this.model as any).x =
-      (window.innerWidth - (this.model as any).width * initialScale) / 2; // 类型断言
-    (this.model as any).y =
-      (window.innerHeight - (this.model as any).height * initialScale) / 2; // 类型断言
+    this.model.x = (window.innerWidth - this.model.width * initialScale) / 2;
+    this.model.y = (window.innerHeight - this.model.height * initialScale) / 2;
     this.updateInteractionArea();
   }
 }

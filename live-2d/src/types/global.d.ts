@@ -21,6 +21,11 @@ declare global {
   interface Window {
     electronAPI: ElectronAPI;
     ipcRenderer: ExposedIpcRenderer;
+    Live2DCubismCore: {
+      Live2DModel: new (...args: unknown[]) => {
+        setParameterValueById: (id: string, value: number) => void;
+      };
+    };
   }
 }
 
