@@ -449,12 +449,12 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: AppConfig) {
           screenshotData
         );
         return { success: true, data: fullResponse };
-      } catch (error: any) {
+      } catch (error: unknown) {
         live2dAppCore?.logToTerminal(
           'error',
-          `主进程处理 LLM 请求出错: ${error.message}`
+          `主进程处理 LLM 请求出错: ${(error as Error).message}`
         );
-        return { error: `LLM Error: ${error.message}` };
+        return { error: `LLM Error: ${(error as Error).message}` };
       }
     }
   );

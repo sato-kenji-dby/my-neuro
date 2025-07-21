@@ -81,44 +81,56 @@ class LLMService {
       let fullResponse = '';
 
       // 准备发送到后端的 messages 格式
-      const messagesForBackend = messages.map((msg) => {
-        if (Array.isArray(msg.content)) {
-          // 如果 content 是数组（多模态），需要转换为后端期望的格式
-          const parts = msg.content.map((part) => {
-            if (part.type === 'text') {
-              return { text: part.text };
-            } else if (
-              part.type === 'image_url' &&
-              part.image_url?.url.startsWith('data:image')
-            ) {
-              // 提取 base64 数据
-              const base64Data = part.image_url.url.split(',')[1];
-              return {
-                inline_data: { mime_type: 'image/jpeg', data: base64Data },
-              };
-            }
-            return {}; // Fallback for unsupported parts
-          });
-          return { role: msg.role, parts: parts };
-        }
-        return { role: msg.role, parts: [{ text: msg.content }] };
-      });
+      const convertMessagesToBackendFormat = (msgs: Message[]) => {
+        return msgs.map((msg) => {
+          if (Array.isArray(msg.content)) {
+            const parts = msg.content.map((part) => {
+              if (part.type === 'text') {
+                return { text: part.text };
+              } else if (
+                part.type === 'image_url' &&
+                part.image_url?.url.startsWith('data:image')
+              ) {
+                const base64Data = part.image_url.url.split(',')[1];
+                return {
+                  inline_data: { mime_type: 'image/jpeg', data: base64Data },
+                };
+              }
+              return {};
+            });
+            return { role: msg.role, parts: parts };
+          } else if (msg.content === null) {
+            // 如果 content 是 null，则 parts 为空数组
+            return { role: msg.role, parts: [] };
+          }
+          // 确保 text 属性是 string 类型
+          return { role: msg.role, parts: [{ text: msg.content as string }] };
+        });
+      };
 
       interface RequestBody {
         model: string;
         prompt: string | null;
-        messages: any[]; // 暂时使用 any，因为 Message 类型可能需要进一步细化
+        messages: Array<{
+          role: string;
+          parts: Array<{
+            text?: string;
+            inline_data?: { mime_type: string; data: string };
+          }>;
+        }>;
         system_instruction: string;
         temperature: number;
         stream: boolean;
         screenshot_data?: string;
-        tools?: any[]; // 暂时使用 any
+        tools?: { type: string; function: { name: string } }[];
       }
+
+      const messagesForBackend = convertMessagesToBackendFormat(messages);
 
       const requestBody: RequestBody = {
         model: this.config.model, // 使用配置中的模型名称
         prompt: prompt,
-        messages: messagesForBackend,
+        messages: messagesForBackend, // 现在类型匹配，无需 as any[]
         system_instruction: systemInstruction, // 仍然从 VoiceChatInterface 传递
         temperature: 0.7, // 可以从 config 中获取或作为参数传递
         stream: true, // 默认流式传输
@@ -233,7 +245,7 @@ class LLMService {
               // 使用 RequestBody 类型
               model: this.config.model,
               prompt: null, // 工具调用后，prompt 应该为空
-              messages: messages,
+              messages: convertMessagesToBackendFormat(messages), // 转换消息格式
               system_instruction: systemInstruction,
               temperature: 0.7,
               stream: false,
