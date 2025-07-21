@@ -88,15 +88,24 @@ export interface AutoChatConfig {
   idle_time?: number;
 }
 
+// 定义 MCP 相关的配置接口
+export interface MCPConfig {
+  enabled: boolean;
+  server_url: string;
+}
+
+// 定义 MCP 工具接口
+export interface MCPTool {
+  name: string;
+  description: string;
+  parameters: object; // JSON Schema 对象
+}
 
 // 定义 AppConfig 接口
 export interface AppConfig {
   llm: LLMConfig; // 使用 LLMConfig
   vision: ScreenshotServiceConfig; // 使用 ScreenshotServiceConfig
-  mcp: {
-    enabled: boolean;
-    // 其他可能的 MCP 配置
-  };
+  mcp: MCPConfig; // 使用 MCPConfig
   bilibili: LiveStreamModuleConfig; // 使用 LiveStreamModuleConfig
   ui: {
     intro_text?: string;

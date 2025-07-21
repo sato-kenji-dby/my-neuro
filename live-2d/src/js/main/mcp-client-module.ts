@@ -1,26 +1,29 @@
+import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型
+import type { AppConfig, MCPConfig, MCPTool } from '$types/global'; // 导入 AppConfig, MCPConfig, MCPTool
+
 // MCP客户端模块 - 集成到AI桌宠系统
 class MCPClientModule {
-  config: any;
-  ttsProcessor: any;
+  config: MCPConfig; // 明确类型
+  ttsProcessor: TTSProcessor; // 明确类型
   isEnabled: boolean;
   serverUrl: string;
   isConnected: boolean;
-  availableTools: any[];
+  availableTools: MCPTool[]; // 明确类型
   sessionId: string;
-  serverInfo: any;
+  serverInfo: { name: string }; // 明确类型
 
-  constructor(config: any, ttsProcessor: any) {
-    // 添加参数类型
+  constructor(config: AppConfig, ttsProcessor: TTSProcessor) { // 明确参数类型
     // 保存配置和依赖项
-    this.config = config.mcp || {};
+    this.config = config.mcp; // 直接使用 config.mcp
     this.ttsProcessor = ttsProcessor;
-    this.isEnabled = this.config.enabled || false;
-    this.serverUrl = this.config.server_url || 'http://localhost:3000';
+    this.isEnabled = this.config.enabled;
+    this.serverUrl = this.config.server_url;
 
     // 状态标志
     this.isConnected = false;
     this.availableTools = [];
     this.sessionId = this.generateSessionId();
+    this.serverInfo = { name: '未初始化' }; // 初始化 serverInfo
 
     console.log(`MCP客户端模块已创建，启用状态: ${this.isEnabled}`);
   }
@@ -66,20 +69,19 @@ class MCPClientModule {
 
       console.log(`已连接到MCP服务器: ${this.serverInfo.name}`);
       console.log(
-        `可用工具(${this.availableTools.length}): ${this.availableTools.map((t: any) => t.name).join(', ')}`
-      ); // 添加 t 类型
+        `可用工具(${this.availableTools.length}): ${this.availableTools.map((t) => t.name).join(', ')}`
+      );
 
       return true;
-    } catch (error) {
-      console.error('MCP服务器连接失败:', error);
+    } catch (error: unknown) {
+      console.error('MCP服务器连接失败:', (error as Error).message);
       this.isConnected = false;
       return false;
     }
   }
 
   // 获取工具列表，用于传递给LLM
-  getToolsForLLM(): any[] {
-    // 添加返回类型
+  getToolsForLLM(): { type: string; function: MCPTool }[] { // 明确返回类型
     if (
       !this.isEnabled ||
       !this.isConnected ||
@@ -88,8 +90,7 @@ class MCPClientModule {
       return [];
     }
 
-    return this.availableTools.map((tool: any) => ({
-      // 添加 tool 类型
+    return this.availableTools.map((tool) => ({
       type: 'function',
       function: {
         name: tool.name,
@@ -100,8 +101,7 @@ class MCPClientModule {
   }
 
   // 处理LLM返回的工具调用
-  async handleToolCalls(toolCalls: any[]): Promise<any> {
-    // 添加 toolCalls 参数类型和返回类型
+  async handleToolCalls(toolCalls: { function: { name: string; arguments: string } }[]): Promise<string | null> { // 明确参数类型和返回类型
     if (
       !this.isEnabled ||
       !this.isConnected ||
@@ -115,14 +115,14 @@ class MCPClientModule {
     const functionName = toolCall.function.name;
 
     // 解析参数
-    let parameters: any; // 添加 parameters 类型
+    let parameters: object; // 明确类型
     try {
       parameters =
         typeof toolCall.function.arguments === 'string'
           ? JSON.parse(toolCall.function.arguments)
           : toolCall.function.arguments;
-    } catch (error) {
-      console.error('解析工具参数错误:', error);
+    } catch (error: unknown) {
+      console.error('解析工具参数错误:', (error as Error).message);
       parameters = {};
     }
 
@@ -131,15 +131,14 @@ class MCPClientModule {
   }
 
   // 调用MCP工具
-  async invokeFunction(functionName: string, parameters: any): Promise<any> {
-    // 添加参数类型和返回类型
+  async invokeFunction(functionName: string, parameters: object): Promise<string | null> { // 明确参数类型和返回类型
     if (!this.isEnabled || !this.isConnected) {
       console.error('MCP功能未启用或未连接到服务器');
       return null;
     }
 
     // 查找工具是否存在
-    const tool = this.availableTools.find((t: any) => t.name === functionName); // 添加 t 类型
+    const tool = this.availableTools.find((t) => t.name === functionName);
     if (!tool) {
       console.error(`未找到MCP工具: ${functionName}`);
       return null;
@@ -169,15 +168,14 @@ class MCPClientModule {
 
       // 处理返回结果
       return data.result?.content || JSON.stringify(data.result);
-    } catch (error) {
-      console.error(`MCP工具调用失败(${functionName}):`, error);
+    } catch (error: unknown) {
+      console.error(`MCP工具调用失败(${functionName}):`, (error as Error).message);
       return null;
     }
   }
 
   // 生成唯一会话ID
   generateSessionId(): string {
-    // 添加返回类型
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
       /[xy]/g,
       function (c) {
@@ -195,4 +193,4 @@ class MCPClientModule {
   }
 }
 
-export { MCPClientModule }; // 转换为 ESM 风格
+export { MCPClientModule };

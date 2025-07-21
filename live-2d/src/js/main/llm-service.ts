@@ -104,7 +104,18 @@ class LLMService {
         return { role: msg.role, parts: [{ text: msg.content }] };
       });
 
-      const requestBody: any = {
+      interface RequestBody {
+        model: string;
+        prompt: string | null;
+        messages: any[]; // 暂时使用 any，因为 Message 类型可能需要进一步细化
+        system_instruction: string;
+        temperature: number;
+        stream: boolean;
+        screenshot_data?: string;
+        tools?: any[]; // 暂时使用 any
+      }
+
+      const requestBody: RequestBody = {
         model: this.config.model, // 使用配置中的模型名称
         prompt: prompt,
         messages: messagesForBackend,
@@ -218,7 +229,7 @@ class LLMService {
 
             this.logToTerminal('info', '发送工具结果到LLM获取最终回复');
             // 重新构建请求体，包含工具结果
-            const finalRequestBody: any = {
+            const finalRequestBody: RequestBody = { // 使用 RequestBody 类型
               model: this.config.model,
               prompt: null, // 工具调用后，prompt 应该为空
               messages: messages,

@@ -1,5 +1,5 @@
 class StateManager {
-  private listeners: { [key: string]: Function[] } = {};
+  private listeners: { [key: string]: ((...args: unknown[]) => void)[] } = {}; // 明确函数类型
   private _isProcessingUserInput: boolean = false;
   private _isPlayingTTS: boolean = false;
   private _isProcessingBarrage: boolean = false;
@@ -9,7 +9,7 @@ class StateManager {
   }
 
   // Custom event emitter methods
-  on(event: string, callback: Function) {
+  on(event: string, callback: (...args: unknown[]) => void) { // 明确 callback 类型
     if (!this.listeners[event]) {
       this.listeners[event] = [];
     }
@@ -20,7 +20,7 @@ class StateManager {
     };
   }
 
-  off(event: string, callback: Function) {
+  off(event: string, callback: (...args: unknown[]) => void) { // 明确 callback 类型
     // 新增 off 方法
     if (this.listeners[event]) {
       this.listeners[event] = this.listeners[event].filter(
@@ -29,7 +29,7 @@ class StateManager {
     }
   }
 
-  emit(event: string, ...args: any[]) {
+  emit(event: string, ...args: unknown[]) { // 明确 args 类型
     const eventListeners = this.listeners[event];
     if (eventListeners) {
       // 遍历副本，以防在迭代过程中修改数组
