@@ -519,13 +519,10 @@
   }
 
   /* 确保滚动条隐藏 */
-  #subtitle-container::-webkit-scrollbar,
-  #chat-messages::-webkit-scrollbar {
-    /* chat-messages 即使隐藏也保留样式 */
+  #subtitle-container::-webkit-scrollbar {
     display: none;
   }
-  #subtitle-container,
-  #chat-messages {
+  #subtitle-container {
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
   }

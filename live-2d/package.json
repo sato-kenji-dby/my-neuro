@@ -56,8 +56,7 @@
     "start": "electron electron.cjs",
     "build:app": "npm run build && npx electron-builder",
     "generate-licenses": "npm-license-crawler --onlyDirectDependencies --json licenses.json",
-    "dev:app-protocol": "npm run build:frontend && electron .",
-    "start-server": "node server.js"
+    "dev:app-protocol": "npm run build:frontend && electron ."
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",
