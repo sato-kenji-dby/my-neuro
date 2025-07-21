@@ -1,4 +1,3 @@
-
 interface BarrageMessage {
   nickname: string;
   text: string;

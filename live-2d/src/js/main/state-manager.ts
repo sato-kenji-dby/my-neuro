@@ -9,7 +9,8 @@ class StateManager {
   }
 
   // Custom event emitter methods
-  on(event: string, callback: (...args: unknown[]) => void) { // 明确 callback 类型
+  on(event: string, callback: (...args: unknown[]) => void) {
+    // 明确 callback 类型
     if (!this.listeners[event]) {
       this.listeners[event] = [];
     }
@@ -20,7 +21,8 @@ class StateManager {
     };
   }
 
-  off(event: string, callback: (...args: unknown[]) => void) { // 明确 callback 类型
+  off(event: string, callback: (...args: unknown[]) => void) {
+    // 明确 callback 类型
     // 新增 off 方法
     if (this.listeners[event]) {
       this.listeners[event] = this.listeners[event].filter(
@@ -29,7 +31,8 @@ class StateManager {
     }
   }
 
-  emit(event: string, ...args: unknown[]) { // 明确 args 类型
+  emit(event: string, ...args: unknown[]) {
+    // 明确 args 类型
     const eventListeners = this.listeners[event];
     if (eventListeners) {
       // 遍历副本，以防在迭代过程中修改数组

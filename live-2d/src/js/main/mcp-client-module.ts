@@ -12,7 +12,8 @@ class MCPClientModule {
   sessionId: string;
   serverInfo: { name: string }; // 明确类型
 
-  constructor(config: AppConfig, ttsProcessor: TTSProcessor) { // 明确参数类型
+  constructor(config: AppConfig, ttsProcessor: TTSProcessor) {
+    // 明确参数类型
     // 保存配置和依赖项
     this.config = config.mcp; // 直接使用 config.mcp
     this.ttsProcessor = ttsProcessor;
@@ -81,7 +82,8 @@ class MCPClientModule {
   }
 
   // 获取工具列表，用于传递给LLM
-  getToolsForLLM(): { type: string; function: MCPTool }[] { // 明确返回类型
+  getToolsForLLM(): { type: string; function: MCPTool }[] {
+    // 明确返回类型
     if (
       !this.isEnabled ||
       !this.isConnected ||
@@ -101,7 +103,10 @@ class MCPClientModule {
   }
 
   // 处理LLM返回的工具调用
-  async handleToolCalls(toolCalls: { function: { name: string; arguments: string } }[]): Promise<string | null> { // 明确参数类型和返回类型
+  async handleToolCalls(
+    toolCalls: { function: { name: string; arguments: string } }[]
+  ): Promise<string | null> {
+    // 明确参数类型和返回类型
     if (
       !this.isEnabled ||
       !this.isConnected ||
@@ -131,7 +136,11 @@ class MCPClientModule {
   }
 
   // 调用MCP工具
-  async invokeFunction(functionName: string, parameters: object): Promise<string | null> { // 明确参数类型和返回类型
+  async invokeFunction(
+    functionName: string,
+    parameters: object
+  ): Promise<string | null> {
+    // 明确参数类型和返回类型
     if (!this.isEnabled || !this.isConnected) {
       console.error('MCP功能未启用或未连接到服务器');
       return null;
@@ -169,7 +178,10 @@ class MCPClientModule {
       // 处理返回结果
       return data.result?.content || JSON.stringify(data.result);
     } catch (error: unknown) {
-      console.error(`MCP工具调用失败(${functionName}):`, (error as Error).message);
+      console.error(
+        `MCP工具调用失败(${functionName}):`,
+        (error as Error).message
+      );
       return null;
     }
   }

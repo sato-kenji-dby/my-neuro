@@ -1,14 +1,16 @@
+import type { Live2DModel } from 'pixi-live2d-display'; // 导入 Live2DModel 类型
+
 // synchronized-emotion-motion-mapper.js - 与TTS系统同步的情绪动作映射器
 class EmotionMotionMapper {
-  model: any; // 声明 model 属性
+  model: Live2DModel; // 明确 model 属性类型
   currentMotionGroup: string; // 声明 currentMotionGroup 属性
   emotionMap: { [key: string]: number }; // 声明 emotionMap 属性
   motionDescriptions: string[]; // 声明 motionDescriptions 属性
   isPlayingMotion: boolean; // 声明 isPlayingMotion 属性
   motionInterval: number; // 声明 motionInterval 属性
 
-  constructor(model: any) {
-    // 添加 model 参数类型
+  constructor(model: Live2DModel) {
+    // 明确 model 参数类型
     this.model = model;
     this.currentMotionGroup = 'TapBody'; // 使用TapBody组，包含所有动作
 
@@ -46,8 +48,12 @@ class EmotionMotionMapper {
   }
 
   // 解析文本，提取所有情绪标签和位置信息
-  parseEmotionTagsWithPosition(text: string) {
-    // 添加 text 参数类型
+  parseEmotionTagsWithPosition(text: string): {
+    emotion: string;
+    startIndex: number;
+    endIndex: number;
+    fullTag: string;
+  }[] {
     // 使用正则表达式匹配所有情绪标签 《xxx》
     const pattern = /<([^>]+)>/g;
     const emotions: {
@@ -55,8 +61,8 @@ class EmotionMotionMapper {
       startIndex: number;
       endIndex: number;
       fullTag: string;
-    }[] = []; // 明确类型
-    let match;
+    }[] = [];
+    let match: RegExpExecArray | null;
 
     while ((match = pattern.exec(text)) !== null) {
       emotions.push({
@@ -72,8 +78,14 @@ class EmotionMotionMapper {
 
   // 预处理文本，为TTS系统做准备
   // 返回: { text: 去除情绪标签的纯文本, emotionMarkers: 带位置信息的情绪标记 }
-  prepareTextForTTS(text: string) {
-    // 添加 text 参数类型
+  prepareTextForTTS(text: string): {
+    text: string;
+    emotionMarkers: {
+      position: number;
+      emotion: string;
+      motionIndex: number;
+    }[];
+  } {
     // 提取情绪标签和位置
     const emotionTags = this.parseEmotionTagsWithPosition(text);
 
@@ -134,8 +146,8 @@ class EmotionMotionMapper {
     position: number,
     textLength: number,
     emotionMarkers: { position: number; emotion: string; motionIndex: number }[]
-  ) {
-    // 明确类型
+  ): void {
+    // 明确返回类型
     if (!emotionMarkers || emotionMarkers.length === 0) return;
 
     // 找到当前位置应该触发的情绪
@@ -163,8 +175,8 @@ class EmotionMotionMapper {
   }
 
   // 为了向后兼容，保留原有接口，但修改内部实现
-  triggerMotionByEmotion(text: string) {
-    // 添加 text 参数类型
+  triggerMotionByEmotion(text: string): string {
+    // 明确返回类型
     // 提取第一个情绪标签
     const match = text.match(/<([^>]+)>/);
     if (match && match[1]) {
@@ -188,14 +200,16 @@ class EmotionMotionMapper {
   }
 
   // 播放指定索引的动作
-  playMotion(index: number) {
-    // 添加 index 参数类型
+  playMotion(index: number): void {
+    // 明确返回类型
     if (!this.model) return;
 
     try {
       // 获取动作配置
       const motionDefinitions =
-        this.model.internalModel.settings.motions[this.currentMotionGroup];
+        this.model.internalModel.motionManager.definitions[
+          this.currentMotionGroup
+        ]; // 更改为 this.model.internalModel.motionManager.definitions
       if (!motionDefinitions || motionDefinitions.length === 0) {
         console.error('没有找到动作定义');
         return;

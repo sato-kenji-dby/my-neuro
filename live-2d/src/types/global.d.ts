@@ -50,28 +50,33 @@ export interface ScreenshotServiceConfig {
   check_url: string;
   screenshot_path: string; // 将 screenshot_path 设为必需
   auto_screenshot?: boolean; // 添加 auto_screenshot
-  screenshot?: { // 添加 screenshot 属性
+  screenshot?: {
+    // 添加 screenshot 属性
     path: string;
   };
 }
 
 // 定义 VoiceChat 相关的配置接口
 export interface VoiceChatConfig {
-  context: { // 更新 context 结构
+  context: {
+    // 更新 context 结构
     max_messages: number;
     enable_limit: boolean;
   };
-  memory: { // 更新 memory 结构
+  memory: {
+    // 更新 memory 结构
     file_path: string;
     check_url: string;
   };
-  llm: { // 添加 llm 属性以匹配 VoiceChatInterface 构造函数
+  llm: {
+    // 添加 llm 属性以匹配 VoiceChatInterface 构造函数
     system_prompt: string;
   };
 }
 
 // 定义 LiveStreamModule 相关的配置接口
 export interface LiveStreamModuleConfig {
+  enabled: boolean; // 添加 enabled 属性
   roomId?: string;
   checkInterval?: number;
   maxMessages?: number;

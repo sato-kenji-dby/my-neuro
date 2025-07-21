@@ -53,7 +53,8 @@ class ConfigLoader {
 
   // 处理特殊路径，比如将 ~ 展开为用户主目录
   processSpecialPaths() {
-    if (this.config?.vision && this.config.vision.screenshot_path) { // 使用可选链操作符
+    if (this.config?.vision && this.config.vision.screenshot_path) {
+      // 使用可选链操作符
       if (!this.config.vision.screenshot) {
         this.config.vision.screenshot = { path: '' }; // 初始化 path 属性
       }

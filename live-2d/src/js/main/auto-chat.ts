@@ -136,7 +136,8 @@ class AutoChatModule {
       // 监听 stateManager.isPlayingTTS 的变化
       const unsubscribe = stateManager.on(
         'state-change:isPlayingTTS',
-        (...args: unknown[]) => { // 接收 unknown[]
+        (...args: unknown[]) => {
+          // 接收 unknown[]
           const isPlaying = args[0] as boolean; // 类型断言
           if (!isPlaying) {
             console.log('TTS播放结束回调被触发 (通过StateManager)');

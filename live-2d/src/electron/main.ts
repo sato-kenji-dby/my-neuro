@@ -191,7 +191,7 @@ class Live2DAppCore {
       this.ttsProcessor,
       this.llmService!, // 传递 LLMService 实例
       this.screenshotService!, // 传递 ScreenshotService 实例
-      this.config
+      this.config.voiceChat // 传入 voiceChat 子配置
     );
 
     // 初始化时增强系统提示
@@ -258,7 +258,7 @@ class Live2DAppCore {
     // 初始化并启动自动对话模块
     setTimeout(() => {
       this.autoChatModule = new AutoChatModule(
-        this.config,
+        this.config!, // 添加非空断言
         this.ttsProcessor!,
         this.llmService!,
         this.screenshotService!

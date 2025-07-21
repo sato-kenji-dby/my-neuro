@@ -73,14 +73,16 @@ class ASRProcessor {
   }
 
   // 自定义事件发射器方法
-  on(event: string, callback: (...args: unknown[]) => void) { // 明确 callback 类型
+  on(event: string, callback: (...args: unknown[]) => void) {
+    // 明确 callback 类型
     if (!this.listeners[event]) {
       this.listeners[event] = [];
     }
     this.listeners[event].push(callback);
   }
 
-  emit(event: string, ...args: unknown[]) { // 明确参数类型
+  emit(event: string, ...args: unknown[]) {
+    // 明确参数类型
     const eventListeners = this.listeners[event];
     if (eventListeners) {
       eventListeners.forEach((listener) => listener(...args));

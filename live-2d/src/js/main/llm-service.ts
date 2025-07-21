@@ -229,7 +229,8 @@ class LLMService {
 
             this.logToTerminal('info', '发送工具结果到LLM获取最终回复');
             // 重新构建请求体，包含工具结果
-            const finalRequestBody: RequestBody = { // 使用 RequestBody 类型
+            const finalRequestBody: RequestBody = {
+              // 使用 RequestBody 类型
               model: this.config.model,
               prompt: null, // 工具调用后，prompt 应该为空
               messages: messages,
