@@ -34,7 +34,7 @@ export interface Message {
         | { type: 'text'; text: string }
         | { type: 'image_url'; image_url: { url: string } }
       >;
-  tool_calls?: any[]; // 添加 tool_calls
+  tool_calls?: unknown[]; // 添加 tool_calls
   tool_call_id?: string; // 添加 tool_call_id
 }
 

@@ -26,6 +26,7 @@ declare global {
         setParameterValueById: (id: string, value: number) => void;
       };
     };
+    webkitAudioContext?: typeof AudioContext;
   }
 }
 

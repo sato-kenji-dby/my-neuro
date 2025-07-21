@@ -1,11 +1,36 @@
 import { TranslationService } from './translation-service';
 
+interface TranslationServiceConfig {
+  enabled: boolean;
+  provider: string;
+  api_url: string;
+  source_lang: string;
+  target_lang: string;
+  prompt: string;
+}
+
+interface LLMConfig {
+  api_key: string;
+  api_url: string; // 这是主LLM后端的URL
+  model: string;
+  provider: string;
+}
+
+interface TTSConfig {
+  tts?: {
+    url?: string;
+    language?: string;
+  };
+  translator?: TranslationServiceConfig;
+  llm?: LLMConfig;
+}
+
 class TTSProcessor {
-  private config: any;
+  private config: TTSConfig;
   private ttsUrl: string;
   private language: string;
   private translationService: TranslationService;
-  private ipcSender: (channel: string, ...args: any[]) => void;
+  private ipcSender: (channel: string, ...args: unknown[]) => void;
   private audioQueue: {
     originalText: string;
     translatedText: string;
@@ -16,12 +41,12 @@ class TTSProcessor {
   private originalSentenceBuffer: string = ''; // 用于缓存原始流式文本
 
   constructor(
-    ipcSender: (channel: string, ...args: any[]) => void,
-    config: any
+    ipcSender: (channel: string, ...args: unknown[]) => void,
+    config: TTSConfig
   ) {
     this.ipcSender = ipcSender;
     this.config = config || {};
-    this.ttsUrl = this.config.tts?.url;
+    this.ttsUrl = this.config.tts?.url || '';
     this.language = this.config.tts?.language || 'zh';
     this.translationService = new TranslationService(
       this.config.translator,
@@ -32,8 +57,8 @@ class TTSProcessor {
   public async processTextToSpeech(originalText: string) {
     if (!originalText.trim()) return;
 
-    const translationResult =
-      await this.translationService.translate(originalText);
+    // const translationResult =
+    //   await this.translationService.translate(originalText);
 
     // 使用原始文本进行分段，确保TTS的输入是原始语言的正确分段
     const originalSegments = originalText.split(/([,。，？！；;：:])/g);

@@ -47,7 +47,7 @@ class AudioPlayer {
   private async initAudioContext() {
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+        window.webkitAudioContext)();
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
       this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);

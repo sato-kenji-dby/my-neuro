@@ -18,9 +18,21 @@ class TranslationService {
   private config: TranslationServiceConfig;
   private llmConfig: LLMConfig;
 
-  constructor(config: TranslationServiceConfig, llmConfig: LLMConfig) {
-    this.config = config;
-    this.llmConfig = llmConfig;
+  constructor(config?: TranslationServiceConfig, llmConfig?: LLMConfig) {
+    this.config = config || {
+      enabled: false,
+      provider: '',
+      api_url: '',
+      source_lang: '',
+      target_lang: '',
+      prompt: '',
+    };
+    this.llmConfig = llmConfig || {
+      api_key: '',
+      api_url: '',
+      model: '',
+      provider: '',
+    };
   }
 
   async translate(
