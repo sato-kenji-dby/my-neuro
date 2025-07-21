@@ -1,9 +1,11 @@
-import * as fs from 'fs'; // 转换为 ESM 风格
-import * as path from 'path'; // 转换为 ESM 风格
-import * as os from 'os'; // 转换为 ESM 风格
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { app } from 'electron'; // 导入 app 模块
+import { AppConfig } from '$types/global'; // 导入 AppConfig
 
 class ConfigLoader {
-  config: any; // 声明 config 属性
+  config: AppConfig | null; // 声明 config 属性
   configPath: string | null = null; // 声明 configPath 属性
   defaultConfigPath: string | null = null; // 声明 defaultConfigPath 属性
 
@@ -13,7 +15,6 @@ class ConfigLoader {
 
   private ensurePaths() {
     if (!this.configPath) {
-      const { app } = require('electron');
       const appPath = app.getAppPath();
       this.configPath = path.join(appPath, 'config.json');
       this.defaultConfigPath = path.join(appPath, 'default_config.json');
@@ -21,7 +22,7 @@ class ConfigLoader {
   }
 
   // 修改后的加载配置文件方法，如果格式不对就直接报错
-  load(): any {
+  load(): AppConfig {
     // 添加返回类型
     this.ensurePaths();
     try {
@@ -30,11 +31,11 @@ class ConfigLoader {
 
       try {
         // 尝试解析 JSON
-        this.config = JSON.parse(configData);
-      } catch (parseError: any) {
+        this.config = JSON.parse(configData) as AppConfig; // 类型断言
+      } catch (parseError: unknown) {
         // 添加 parseError 类型
         // JSON 解析失败，说明格式不对
-        throw new Error(`JSON格式错误: ${parseError.message}`);
+        throw new Error(`JSON格式错误: ${(parseError as Error).message}`);
       }
 
       console.log('配置文件加载成功');
@@ -43,7 +44,7 @@ class ConfigLoader {
       this.processSpecialPaths();
 
       return this.config;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 添加 error 类型
       console.error('配置文件读取失败:', error);
       throw error; // 直接抛出错误，不提供默认配置
@@ -52,9 +53,9 @@ class ConfigLoader {
 
   // 处理特殊路径，比如将 ~ 展开为用户主目录
   processSpecialPaths() {
-    if (this.config.vision && this.config.vision.screenshot_path) {
+    if (this.config?.vision && this.config.vision.screenshot_path) { // 使用可选链操作符
       if (!this.config.vision.screenshot) {
-        this.config.vision.screenshot = {};
+        this.config.vision.screenshot = { path: '' }; // 初始化 path 属性
       }
       this.config.vision.screenshot.path =
         this.config.vision.screenshot_path.replace(/^~/, os.homedir());
@@ -62,7 +63,7 @@ class ConfigLoader {
   }
 
   // 保存配置
-  save(config: any = null): boolean {
+  save(config: AppConfig | null = null): boolean {
     // 添加 config 参数类型和返回类型
     this.ensurePaths();
     try {
@@ -86,7 +87,7 @@ class ConfigLoader {
       );
       console.log('配置已保存');
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('保存配置失败:', error);
       return false;
     }
@@ -95,4 +96,4 @@ class ConfigLoader {
 
 // 创建并导出单例
 const configLoader = new ConfigLoader();
-export { configLoader }; // 转换为 ESM 风格
+export { configLoader };

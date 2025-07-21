@@ -1,16 +1,28 @@
+
+interface BarrageMessage {
+  nickname: string;
+  text: string;
+  timeline: string; // 根据实际数据结构添加
+}
+
 class LiveStreamModule {
   roomId: string;
   checkInterval: number;
   maxMessages: number;
   apiUrl: string;
-  onNewMessage: Function | null;
+  onNewMessage: ((message: { nickname: string; text: string }) => void) | null; // 更具体的函数类型
   lastCheckedTimestamp: number;
   isRunning: boolean;
   checkTimer: number | null;
-  messageCache: any[]; // 假设消息结构是 any，或者定义一个接口
+  messageCache: BarrageMessage[]; // 使用定义的接口
 
-  constructor(config: any) {
-    // 添加 config 参数类型
+  constructor(config: {
+    roomId?: string;
+    checkInterval?: number;
+    maxMessages?: number;
+    apiUrl?: string;
+    onNewMessage?: (message: { nickname: string; text: string }) => void;
+  }) {
     // 配置参数
     this.roomId = config.roomId || '30230160'; // 默认房间ID
     this.checkInterval = config.checkInterval || 5000; // 轮询间隔，默认5秒
@@ -78,11 +90,10 @@ class LiveStreamModule {
         throw new Error('API返回数据格式错误');
       }
 
-      const messages = data.data.room;
+      const messages: BarrageMessage[] = data.data.room; // 明确类型
 
       // 过滤出新消息
-      const newMessages = messages.filter((message: any) => {
-        // 添加 message 类型
+      const newMessages = messages.filter((message: BarrageMessage) => {
         const messageTime = new Date(message.timeline).getTime() / 1000;
         return messageTime > this.lastCheckedTimestamp;
       });
@@ -112,7 +123,7 @@ class LiveStreamModule {
   }
 
   // 获取缓存的所有消息
-  getMessages(): any[] {
+  getMessages(): BarrageMessage[] {
     // 添加返回类型
     return [...this.messageCache];
   }

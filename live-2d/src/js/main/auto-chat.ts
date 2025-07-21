@@ -2,9 +2,10 @@ import { stateManager } from './state-manager'; // 导入 StateManager
 import type { TTSProcessor } from './tts-processor'; // 导入 TTSProcessor 类型
 import type { LLMService } from './llm-service'; // 导入 LLMService 类型
 import type { ScreenshotService } from './screenshot-service'; // 导入 ScreenshotService 类型
+import type { AppConfig } from '$types/global'; // 导入 AppConfig
 
 class AutoChatModule {
-  config: any;
+  config: AppConfig; // 明确 config 类型
   ttsProcessor: TTSProcessor; // 假设 ttsProcessor 是 TTSProcessor 类的实例
   llmService: LLMService; // 添加 LLMService 实例
   screenshotService: ScreenshotService; // 添加 ScreenshotService 实例
@@ -16,7 +17,7 @@ class AutoChatModule {
   isProcessing: boolean;
 
   constructor(
-    config: any,
+    config: AppConfig, // 明确 config 类型
     ttsProcessor: TTSProcessor,
     llmService: LLMService, // 接收 LLMService 实例
     screenshotService: ScreenshotService // 接收 ScreenshotService 实例
@@ -29,7 +30,7 @@ class AutoChatModule {
     this.isRunning = false;
     this.enabled = config.auto_chat.enabled;
     this.idleTimeThreshold =
-      config.auto_chat.idle_time || config.auto_chat.max_interval;
+      config.auto_chat.idle_time || config.auto_chat.max_interval || 6000; // 提供一个默认值
     this.lastInteractionTime = Date.now();
     this.isProcessing = false;
   }
@@ -129,9 +130,7 @@ class AutoChatModule {
 
   // 等待TTS播放完成
   waitForTTS(content: string) {
-    // 添加类型
     return new Promise<void>((resolve) => {
-      // 修正 Promise 类型
       console.log('设置TTS结束回调，等待播放完成...');
 
       // 监听 stateManager.isPlayingTTS 的变化

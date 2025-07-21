@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron';
+import { AppConfig } from '$types/global'; // 导入 AppConfig
 
 // 导入 Live2D 相关的模块
 import { TTSProcessor } from '$js/main/tts-processor';
@@ -30,7 +31,7 @@ class Live2DAppCore {
   public mcpClientModule: MCPClientModule | undefined;
   public llmService: LLMService | undefined; // 添加 LLMService 实例
   public screenshotService: ScreenshotService | undefined; // 添加 ScreenshotService 实例
-  private config: any; // 确保 config 在 Live2DAppCore 中可用
+  private config: AppConfig | undefined; // 确保 config 在 Live2DAppCore 中可用
 
   private barrageQueue: { nickname: string; text: string }[] = [];
 
@@ -126,7 +127,7 @@ class Live2DAppCore {
   }
 
   // 初始化方法
-  public async initialize(config: any) {
+  public async initialize(config: AppConfig) {
     this.config = config;
     this.logToTerminal('info', 'Live2DAppCore 初始化开始');
 
@@ -425,7 +426,7 @@ export async function initializeMainProcess(mainWindow: BrowserWindow) {
 /**
  * 注册所有IPC事件监听器
  */
-function registerIpcHandlers(mainWindow: BrowserWindow, config: any) {
+function registerIpcHandlers(mainWindow: BrowserWindow, config: AppConfig) {
   // 监听渲染进程的日志请求
   ipcMain.on('log-to-main', (_, { level, message }) => {
     live2dAppCore?.logToTerminal(level, message);

@@ -2,7 +2,7 @@ import { stateManager } from './state-manager';
 
 // ASR（自动语音识别）功能模块
 class ASRProcessor {
-  private listeners: { [key: string]: Function[] } = {};
+  private listeners: { [key: string]: ((...args: unknown[]) => void)[] } = {}; // 更具体的函数类型
   private vadUrl: string;
   private asrUrl: string;
   private isProcessingAudio: boolean;
@@ -73,14 +73,14 @@ class ASRProcessor {
   }
 
   // 自定义事件发射器方法
-  on(event: string, callback: Function) {
+  on(event: string, callback: (...args: unknown[]) => void) { // 明确 callback 类型
     if (!this.listeners[event]) {
       this.listeners[event] = [];
     }
     this.listeners[event].push(callback);
   }
 
-  emit(event: string, ...args: any[]) {
+  emit(event: string, ...args: unknown[]) { // 明确参数类型
     const eventListeners = this.listeners[event];
     if (eventListeners) {
       eventListeners.forEach((listener) => listener(...args));
@@ -160,7 +160,7 @@ class ASRProcessor {
     if (this.isProcessingAudio || this.asrLocked) return;
 
     if (this.isRecording) {
-      const currentTime = Date.now();
+      // const currentTime = Date.now(); // 'currentTime' is assigned a value but never used
       // const silenceDuration = currentTime - this.lastSpeechTime;
 
       if (!this.silenceTimeout) {

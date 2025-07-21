@@ -261,7 +261,8 @@
 
       asrProcessor = new ASRProcessor(vadUrl, asrUrl);
 
-      asrProcessor.on('speech-recognized', (text: string) => {
+      asrProcessor.on('speech-recognized', (...args: unknown[]) => { // 接收 unknown[]
+        const text = args[0] as string; // 类型断言
         ipcRenderer.send('speech-recognized', text);
       });
 
