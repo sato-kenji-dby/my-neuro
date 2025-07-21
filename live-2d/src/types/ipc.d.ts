@@ -8,7 +8,7 @@ export interface ExposedIpcRenderer {
     listener: (event: IpcRendererEvent, ...args: unknown[]) => void
   ) => void;
   off: (channel: string, listener: (...args: unknown[]) => void) => void;
-  invoke: (channel: string, ...args: unknown[]) => Promise<any>;
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
   removeAllListeners: (channel: string) => void;
 }
 

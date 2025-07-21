@@ -1,8 +1,5 @@
 import type { Live2DModel } from 'pixi-live2d-display';
-import type { Application, Point } from 'pixi.js';
-
-// 声明 Live2DCubismCore 全局变量为 any，因为没有 @types 包且复杂声明可能导致问题
-declare let Live2DCubismCore: any;
+import type { Application } from 'pixi.js';
 
 // 定义一个只包含我们需要的 ipcRenderer 方法的接口
 interface MinimalIpcRenderer {

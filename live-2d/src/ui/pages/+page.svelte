@@ -8,6 +8,7 @@
   import { EmotionMotionMapper } from '$js/renderer/emotion-motion-mapper';
   import { AudioPlayer } from '$js/renderer/audio-player';
   import type { ExposedIpcRenderer } from '$types/ipc'; // 新增导入
+  import type { ASRProcessor } from '$js/main/asr-processor';
 
   // UI 相关的状态
   let subtitleText = '';
@@ -91,7 +92,7 @@
   let model: Live2DModel;
   let modelController: ModelInteractionController;
   let emotionMapper: EmotionMotionMapper;
-  let asrProcessor: any;
+  let asrProcessor: ASRProcessor;
   let audioPlayer: AudioPlayer;
 
   // 处理文本消息发送
@@ -358,6 +359,7 @@
           app.renderer.plugins &&
           app.renderer.plugins.interaction
         ) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (app.renderer.plugins.interaction as any).destroy(); // 类型断言
         }
         app.destroy();

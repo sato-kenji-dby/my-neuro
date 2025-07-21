@@ -3,18 +3,18 @@
 export interface ExposedIpcRenderer {
   on: (
     channel: string,
-    listener: (event: unknown, ...args: any[]) => void
+    listener: (event: unknown, ...args: unknown[]) => void
   ) => void;
-  send: (channel: string, ...args: any[]) => void;
-  off: (channel: string, listener: (...args: any[]) => void) => void;
-  invoke: (channel: string, ...args: any[]) => Promise<any>;
+  send: (channel: string, ...args: unknown[]) => void;
+  off: (channel: string, listener: (...args: unknown[]) => void) => void;
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
   removeAllListeners: (channel: string) => void;
 }
 
 export interface ElectronAPI {
-  openDirectoryDialog: () => Promise<any>;
-  getAllTracks: () => Promise<any>;
-  getLicenses: () => Promise<any>;
+  openDirectoryDialog: () => Promise<unknown>;
+  getAllTracks: () => Promise<unknown>;
+  getLicenses: () => Promise<unknown>;
 }
 
 declare global {
