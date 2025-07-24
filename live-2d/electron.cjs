@@ -206,6 +206,22 @@ app.on('ready', async () => {
 
   tray.setToolTip('My Neuro');
   tray.setContextMenu(contextMenu);
+
+  // --- 任务栏显示/隐藏的 IPC 监听器 ---
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  ipcMain.on('show-taskbar', () => {
+    if (mainWindow) {
+      mainWindow.setSize(width, height - 10);
+    }
+  });
+
+  ipcMain.on('hide-taskbar', () => {
+    if (mainWindow) {
+      mainWindow.setSize(width, height);
+    }
+  });
 });
 
 app.on('window-all-closed', () => {

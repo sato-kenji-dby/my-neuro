@@ -103,6 +103,27 @@
     }
   }
 
+  // --- 任务栏显示/隐藏的逻辑 ---
+  let taskbarTimeout: NodeJS.Timeout | null = null;
+  let isTaskbarZone = false;
+
+  function handleMouseMove(e: MouseEvent) {
+    const nearBottom = e.clientY > window.innerHeight - 10;
+
+    if (nearBottom && !isTaskbarZone) {
+      isTaskbarZone = true;
+      if (taskbarTimeout) clearTimeout(taskbarTimeout);
+      window.ipcRenderer.send('show-taskbar');
+    } else if (!nearBottom && isTaskbarZone) {
+      isTaskbarZone = false;
+      if (taskbarTimeout) clearTimeout(taskbarTimeout);
+      taskbarTimeout = setTimeout(() => {
+        window.ipcRenderer.send('hide-taskbar');
+      }, 300); // 延迟300毫秒后隐藏
+    }
+  }
+  // -----------------------------
+
   // 处理文本消息发送
   function handleTextMessage(text: string) {
     if (!text.trim()) return;
@@ -297,6 +318,8 @@
     // // 鼠标事件监听
     // document.addEventListener('mousemove', updateMouseIgnore);
 
+    document.addEventListener('mousemove', handleMouseMove);
+
     // 切换文本框显示/隐藏的快捷键
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Alt') {
@@ -399,6 +422,7 @@
         modelController.destroy(); // 调用 ModelInteractionController 的销毁方法
       }
       // document.removeEventListener('mousemove', updateMouseIgnore);
+      document.removeEventListener('mousemove', handleMouseMove);
 
       // 移除所有监听器以防内存泄漏
       window.ipcRenderer.removeAllListeners('pause-asr');
