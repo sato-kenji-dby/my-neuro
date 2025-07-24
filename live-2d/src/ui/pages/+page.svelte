@@ -402,7 +402,6 @@
   <canvas
     id="canvas"
     class="absolute left-0 top-0 h-full w-full"
-    style="background-image: url('/bg/bg.jpg'); background-size: cover; background-position: center;"
   ></canvas>
 
   <!-- 新增的待办事项板和专注模式按钮容器 -->

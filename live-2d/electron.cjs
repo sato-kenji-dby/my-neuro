@@ -62,6 +62,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true, // Set to true for security
+      transparent: true, // 再次强调透明
+      backgroundThrottling: false, // 确保后台不降低渲染性能
     },
     transparent: true, // 启用透明
     frame: false, // 禁用边框
