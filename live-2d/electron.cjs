@@ -185,7 +185,7 @@ app.on('ready', async () => {
   const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'static', iconName)
     : path.join(__dirname, 'static', iconName);
-  
+
   tray = new Tray(iconPath);
 
   const contextMenu = Menu.buildFromTemplate([

@@ -26,20 +26,7 @@ class ModelInteractionController {
     this.model = model;
     this.app = app;
     this.ipcRenderer = ipcRenderer;
-    this.updateInteractionArea();
     this.setupInteractivity();
-  }
-
-  // 更新交互区域大小和位置
-  updateInteractionArea() {
-    if (!this.model) return;
-
-    this.interactionWidth = this.model.width / 3;
-    this.interactionHeight = this.model.height * 0.7;
-    this.interactionX =
-      this.model.x + (this.model.width - this.interactionWidth) / 2;
-    this.interactionY =
-      this.model.y + (this.model.height - this.interactionHeight) / 2;
   }
 
   // 鼠标释放事件处理
@@ -75,7 +62,6 @@ class ModelInteractionController {
 
         this.model.x -= deltaWidth / 2;
         this.model.y -= deltaHeight / 2;
-        this.updateInteractionArea();
       }
     }
   };
@@ -89,7 +75,6 @@ class ModelInteractionController {
         window.innerHeight / 2
       );
       this.app.stage.pivot.set(window.innerWidth / 2, window.innerHeight / 2);
-      this.updateInteractionArea();
     }
   };
 
@@ -115,7 +100,6 @@ class ModelInteractionController {
         const newX = e.data.global.x - this.dragOffset.x;
         const newY = e.data.global.y - this.dragOffset.y;
         this.model?.position.set(newX, newY);
-        this.updateInteractionArea();
       }
     });
 
@@ -229,7 +213,6 @@ class ModelInteractionController {
     // 将模型放置在屏幕中央
     this.model.x = (window.innerWidth - this.model.width * initialScale) / 2;
     this.model.y = (window.innerHeight - this.model.height * initialScale) / 2;
-    this.updateInteractionArea();
   }
 }
 
