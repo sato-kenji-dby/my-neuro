@@ -252,7 +252,7 @@
       level: 'info',
       message: '渲染进程：已禁用鼠标穿透。',
     });
-
+    
     // 初始化 ASR
     try {
       const { ASRProcessor } = await import('$js/main/asr-processor');

@@ -63,8 +63,8 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true, // Set to true for security
     },
-    transparent: false, // 禁用透明以显示背景 !process.env.ELECTRON_START_URL
-    frame: !!process.env.ELECTRON_START_URL, // 开发模式下启用边框
+    transparent: true, // 启用透明
+    frame: false, // 禁用边框
     alwaysOnTop: true, // 保持在最上层 (可选，根据需求)
     skipTaskbar: true, // 不在任务栏显示图标 (可选，根据需求)
     backgroundColor: '#00000000', // 设置窗口背景为完全透明

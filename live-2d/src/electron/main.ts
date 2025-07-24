@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, globalShortcut } from 'electron';
 import { AppConfig } from '$types/global'; // 导入 AppConfig
 
 // 导入 Live2D 相关的模块
@@ -34,6 +34,7 @@ class Live2DAppCore {
   private config: AppConfig | undefined; // 确保 config 在 Live2DAppCore 中可用
 
   private barrageQueue: { nickname: string; text: string }[] = [];
+  public ensureTopMostInterval: NodeJS.Timeout | null = null; // 用于存储 setInterval 的引用
 
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
@@ -62,6 +63,15 @@ class Live2DAppCore {
   // 更新鼠标穿透状态
   private updateMouseIgnore(shouldIgnore: boolean) {
     this.mainWindow.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+    this.logToTerminal('info', `鼠标穿透状态已更新为: ${shouldIgnore}`);
+  }
+
+  // 确保窗口始终在最顶层
+  public ensureTopMost() {
+    if (!this.mainWindow.isAlwaysOnTop()) {
+      this.mainWindow.setAlwaysOnTop(true, 'screen-saver');
+      this.logToTerminal('info', '窗口已强制置顶');
+    }
   }
 
   // 将弹幕添加到队列
@@ -191,7 +201,11 @@ class Live2DAppCore {
       this.ttsProcessor,
       this.llmService!, // 传递 LLMService 实例
       this.screenshotService!, // 传递 ScreenshotService 实例
-      this.config.voiceChat // 传入 voiceChat 子配置
+      { // 传入 VoiceChatConfig 结构
+        context: this.config.context,
+        memory: this.config.memory,
+        llm: this.config.llm // 确保 llm 配置也传递过去
+      }
     );
 
     // 初始化时增强系统提示
@@ -232,7 +246,7 @@ class Live2DAppCore {
     // 初始化直播模块
     if (this.config.bilibili && this.config.bilibili.enabled) {
       this.liveStreamModule = new LiveStreamModule({
-        roomId: this.config.bilibili.roomId || '30230160',
+        roomId: this.config.bilibili.roomId, // 将默认值改为 number
         checkInterval: this.config.bilibili.checkInterval || 5000,
         maxMessages: this.config.bilibili.maxMessages || 50,
         apiUrl:
@@ -281,6 +295,11 @@ class Live2DAppCore {
     if (this.mcpClientModule) {
       this.mcpClientModule.stop();
     }
+    // if (this.ensureTopMostInterval) {
+    //   clearInterval(this.ensureTopMostInterval);
+    //   this.ensureTopMostInterval = null;
+    //   this.logToTerminal('info', '强制置顶定时器已清除');
+    // }
     this.logToTerminal('info', 'Live2DAppCore 已关闭，资源已清理');
   }
 
@@ -405,6 +424,52 @@ export async function initializeMainProcess(mainWindow: BrowserWindow) {
     // 加载配置文件
     const config = configLoader.load();
     live2dAppCore.logToTerminal('info', '配置文件加载成功');
+
+    // 设置窗口属性和行为
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+    mainWindow.setAlwaysOnTop(true, 'screen-saver'); // 强制置顶
+    mainWindow.setIgnoreMouseEvents(true, { forward: true }); // 默认开启鼠标穿透并转发事件
+    mainWindow.setMenu(null); // 移除菜单
+    mainWindow.setPosition(0, 0); // 设置位置
+    mainWindow.setSize(screenWidth, screenHeight); // 设置窗口大小为全屏工作区
+
+    // 确保窗口始终在最顶层
+    mainWindow.on('blur', () => {
+      live2dAppCore?.ensureTopMost();
+    });
+    live2dAppCore.ensureTopMostInterval = setInterval(() => {
+      live2dAppCore?.ensureTopMost();
+    }, 1000);
+    live2dAppCore.logToTerminal('info', '强制置顶定时器已启动');
+
+    // 注册全局快捷键 (F12 for DevTools)
+    globalShortcut.register('F12', () => {
+      mainWindow.webContents.openDevTools();
+      live2dAppCore?.logToTerminal('info', 'F12 快捷键触发：打开开发者工具');
+    });
+
+    // 注册全局快捷键 (Ctrl+Q for Quit)
+    globalShortcut.register('CommandOrControl+Q', () => {
+      app.quit();
+      live2dAppCore?.logToTerminal('info', 'Ctrl+Q 快捷键触发：退出应用');
+    });
+
+    // 注册全局快捷键 (Ctrl+G for Interrupt TTS)
+    globalShortcut.register('CommandOrControl+G', () => {
+      live2dAppCore?.logToTerminal('info', 'Ctrl+G 快捷键触发：中断 TTS');
+      mainWindow.webContents.send('interrupt-tts');
+    });
+
+    // 注册全局快捷键 (Ctrl+T for Force AlwaysOnTop)
+    globalShortcut.register('CommandOrControl+T', () => {
+      live2dAppCore?.logToTerminal('info', 'Ctrl+T 快捷键触发：强制置顶');
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach(win => {
+        win.setAlwaysOnTop(true, 'screen-saver');
+      });
+    });
 
     // 运行网络诊断
     // await diagnoseNetwork(config);
