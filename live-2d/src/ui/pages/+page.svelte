@@ -267,7 +267,7 @@
       level: 'info',
       message: '渲染进程：默认启用鼠标穿透。',
     });
-    
+
     // 初始化 ASR
     try {
       const { ASRProcessor } = await import('$js/main/asr-processor');
@@ -321,7 +321,12 @@
 
       element.addEventListener('mousedown', (e: MouseEvent) => {
         // 确保只在目标元素上触发拖动，而不是其子元素
-        if (e.target !== element && !Array.from(element.querySelectorAll('*')).includes(e.target as Element)) {
+        if (
+          e.target !== element &&
+          !Array.from(element.querySelectorAll('*')).includes(
+            e.target as Element
+          )
+        ) {
           // 如果事件目标不是元素本身，也不是其子元素，则不启动拖动
           // 这通常意味着点击了元素的边框或空白区域
         }
@@ -420,10 +425,7 @@
 </svelte:head>
 
 <div class="relative h-screen w-screen overflow-hidden">
-  <canvas
-    id="canvas"
-    class="absolute left-0 top-0 h-full w-full"
-  ></canvas>
+  <canvas id="canvas" class="absolute left-0 top-0 h-full w-full"></canvas>
 
   <!-- 新增的待办事项板和专注模式按钮容器 -->
   <div

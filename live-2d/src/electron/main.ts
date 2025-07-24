@@ -201,10 +201,11 @@ class Live2DAppCore {
       this.ttsProcessor,
       this.llmService!, // 传递 LLMService 实例
       this.screenshotService!, // 传递 ScreenshotService 实例
-      { // 传入 VoiceChatConfig 结构
+      {
+        // 传入 VoiceChatConfig 结构
         context: this.config.context,
         memory: this.config.memory,
-        llm: this.config.llm // 确保 llm 配置也传递过去
+        llm: this.config.llm, // 确保 llm 配置也传递过去
       }
     );
 
@@ -427,7 +428,8 @@ export async function initializeMainProcess(mainWindow: BrowserWindow) {
 
     // 设置窗口属性和行为
     const primaryDisplay = screen.getPrimaryDisplay();
-    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    const { width: screenWidth, height: screenHeight } =
+      primaryDisplay.workAreaSize;
 
     mainWindow.setAlwaysOnTop(true, 'screen-saver'); // 强制置顶
     mainWindow.setIgnoreMouseEvents(true, { forward: true }); // 默认开启鼠标穿透并转发事件
@@ -466,7 +468,7 @@ export async function initializeMainProcess(mainWindow: BrowserWindow) {
     globalShortcut.register('CommandOrControl+T', () => {
       live2dAppCore?.logToTerminal('info', 'Ctrl+T 快捷键触发：强制置顶');
       const windows = BrowserWindow.getAllWindows();
-      windows.forEach(win => {
+      windows.forEach((win) => {
         win.setAlwaysOnTop(true, 'screen-saver');
       });
     });
