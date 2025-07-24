@@ -320,9 +320,15 @@
       let offsetY: number;
 
       element.addEventListener('mousedown', (e: MouseEvent) => {
+        // 确保只在目标元素上触发拖动，而不是其子元素
+        if (e.target !== element && !Array.from(element.querySelectorAll('*')).includes(e.target as Element)) {
+          // 如果事件目标不是元素本身，也不是其子元素，则不启动拖动
+          // 这通常意味着点击了元素的边框或空白区域
+        }
+
         isDragging = true;
-        offsetX = e.clientX - element.getBoundingClientRect().left;
-        offsetY = e.clientY - element.getBoundingClientRect().top;
+        offsetX = e.clientX - element.offsetLeft;
+        offsetY = e.clientY - element.offsetTop;
         element.style.cursor = 'grabbing';
         element.style.userSelect = 'none'; // 防止拖动时选择文本
       });
