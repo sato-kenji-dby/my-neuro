@@ -95,6 +95,14 @@
   let asrProcessor: ASRProcessor;
   let audioPlayer: AudioPlayer;
 
+  // --- 鼠标穿透控制 ---
+  function setIgnoreMouse(ignore: boolean) {
+    // 在发送前检查 ipcRenderer 是否存在
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send('request-set-ignore-mouse-events', { ignore });
+    }
+  }
+
   // 处理文本消息发送
   function handleTextMessage(text: string) {
     if (!text.trim()) return;
@@ -200,6 +208,12 @@
       model = await Live2DModel.from('/2D/Hiyori.model3.json'); // 注意路径
       app.stage.addChild(model as unknown as DisplayObject);
 
+      // --- 设置模型交互以控制鼠标穿透 ---
+      model.interactive = true; // 确保模型是可交互的
+      model.on('pointerover', () => setIgnoreMouse(false));
+      model.on('pointerout', () => setIgnoreMouse(true));
+      // ------------------------------------
+
       // 确保舞台可交互，并设置交互区域 (移除，由模型自身处理)
       // app.stage.interactive = true;
       // app.stage.hitArea = app.screen;
@@ -247,10 +261,11 @@
     //     ipcRenderer.send('request-set-ignore-mouse-events', { ignore: true });
     //     ipcRenderer.send('log-to-main', { level: 'info', message: '渲染进程：生产模式下启用鼠标穿透。' });
     // }
-    ipcRenderer.send('request-set-ignore-mouse-events', { ignore: false });
+    // 初始化时，默认启用鼠标穿透
+    setIgnoreMouse(true);
     ipcRenderer.send('log-to-main', {
       level: 'info',
-      message: '渲染进程：已禁用鼠标穿透。',
+      message: '渲染进程：默认启用鼠标穿透。',
     });
     
     // 初始化 ASR
@@ -408,6 +423,9 @@
   <div
     id="top-center-controls"
     class="pointer-events-auto z-50 flex cursor-grab flex-col items-center space-y-4 p-4"
+    on:mouseenter={() => setIgnoreMouse(false)}
+    on:mouseleave={() => setIgnoreMouse(true)}
+    role="group"
   >
     <!-- 待办事项板 -->
     <div
@@ -441,6 +459,9 @@
     id="subtitle-container"
     class="pointer-events-auto z-50 max-h-[300px] max-w-[80%] cursor-grab overflow-hidden whitespace-pre-wrap break-words rounded-lg p-2 text-center md:p-5"
     class:hidden={!showSubtitleContainer}
+    on:mouseenter={() => setIgnoreMouse(false)}
+    on:mouseleave={() => setIgnoreMouse(true)}
+    role="group"
   >
     <p
       id="subtitle-text"
@@ -456,6 +477,9 @@
     class="pointer-events-auto z-50 max-h-[400px] w-80 cursor-grab rounded-xl border border-slate-700 bg-slate-900/70 p-3 shadow-lg backdrop-blur-sm transition-opacity duration-300"
     class:opacity-0={!showTextChatContainer}
     class:hidden={!showTextChatContainer}
+    on:mouseenter={() => setIgnoreMouse(false)}
+    on:mouseleave={() => setIgnoreMouse(true)}
+    role="group"
   >
     <!-- 隐藏聊天消息历史，只保留输入框 -->
     <div id="chat-input-container" class="flex items-center gap-2">

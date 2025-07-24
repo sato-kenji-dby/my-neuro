@@ -96,6 +96,19 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // --- 开发者工具与鼠标穿透的交互处理 ---
+  // mainWindow.webContents.on('devtools-opened', () => {
+  //   console.log('[Main Process] DevTools opened, disabling mouse ignore.');
+  //   mainWindow.setIgnoreMouseEvents(false);
+  // });
+
+  // mainWindow.webContents.on('devtools-closed', () => {
+  //   console.log('[Main Process] DevTools closed, re-enabling mouse ignore.');
+  //   // 注意：这里我们假设默认状态是穿透的。
+  //   // 如果需要更复杂的逻辑，可以维护一个状态变量。
+  //   mainWindow.setIgnoreMouseEvents(true, { forward: true });
+  // });
 }
 
 protocol.registerSchemesAsPrivileged([
