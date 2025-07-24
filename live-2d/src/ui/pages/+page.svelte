@@ -536,9 +536,11 @@
 </div>
 
 <style lang="postcss">
-  @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
+  :global {
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+  }
 
   #canvas {
     position: absolute;
