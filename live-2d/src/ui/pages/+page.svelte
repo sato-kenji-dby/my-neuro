@@ -1,5 +1,6 @@
 <!-- live-2d/src/ui/pages/+page.svelte -->
 <script lang="ts">
+  import '$src/app.css';
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import type { Application, DisplayObject } from 'pixi.js';
@@ -536,12 +537,6 @@
 </div>
 
 <style lang="postcss">
-  :global {
-    @tailwind base;
-    @tailwind components;
-    @tailwind utilities;
-  }
-
   #canvas {
     position: absolute;
     top: 0;

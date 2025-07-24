@@ -12,6 +12,7 @@ const config = {
       fallback: 'index.html',
     }),
     alias: {
+      $src: './src',
       $api: './src/api',
       $core: './src/core',
       $services: './src/services',
