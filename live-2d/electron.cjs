@@ -10,6 +10,8 @@ const {
   dialog,
   protocol,
   screen,
+  Tray,
+  Menu,
 } = require('electron');
 const path = require('path');
 const url = require('url');
@@ -43,6 +45,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // console.log('[Main Process] HTTP_PROXY and HTTPS_PROXY environment variables set.');
 
 let mainWindow;
+let tray = null;
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -176,6 +179,33 @@ app.on('ready', async () => {
     );
     app.quit();
   }
+
+  // --- 创建系统托盘 ---
+  const iconName = 'icon.png';
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'static', iconName)
+    : path.join(__dirname, 'static', iconName);
+  
+  tray = new Tray(iconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '重启',
+      click: () => {
+        app.relaunch();
+        app.exit();
+      },
+    },
+    {
+      label: '退出',
+      click: () => {
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip('My Neuro');
+  tray.setContextMenu(contextMenu);
 });
 
 app.on('window-all-closed', () => {
