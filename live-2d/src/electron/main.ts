@@ -39,6 +39,15 @@ class Live2DAppCore {
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
     this.logToTerminal('info', 'Live2DAppCore 实例已创建');
+
+    // 监听窗口关闭事件，以清理定时器，防止在窗口销毁后继续引用
+    this.mainWindow.on('closed', () => {
+      if (this.ensureTopMostInterval) {
+        clearInterval(this.ensureTopMostInterval);
+        this.ensureTopMostInterval = null;
+        this.logToTerminal('info', '强制置顶定时器已因窗口关闭而清除');
+      }
+    });
   }
 
   // 添加终端日志记录函数

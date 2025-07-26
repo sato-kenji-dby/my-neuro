@@ -54,33 +54,33 @@ let tray = null;
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
-  const windowWidth = width; // 增加 Live2D 模型窗口的宽度
-  const windowHeight = height; // 增加 Live2D 模型窗口的高度
-  const offsetX = 100; // 向左偏移量
+  const windowWidth = width; // Increase the width of the Live2D model window
+  const windowHeight = height; // Increase the height of the Live2D model window
+  const offsetX = 100; // Offset to the left
 
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    x: width - windowWidth - offsetX, // 放置在右下角，并向左偏移
-    y: height - windowHeight, // 放置在右下角
+    x: width - windowWidth - offsetX, // Place at the bottom right and offset to the left
+    y: height - windowHeight, // Place at the bottom right
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'dist-electron/preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true, // Set to true for security
-      transparent: true, // 再次强调透明
-      backgroundThrottling: false, // 确保后台不降低渲染性能
+      transparent: true, // Emphasize transparency again
+      backgroundThrottling: false, // Ensure background does not degrade rendering performance
     },
-    transparent: true, // 启用透明
-    frame: false, // 禁用边框
-    alwaysOnTop: true, // 保持在最上层 (可选，根据需求)
-    skipTaskbar: true, // 不在任务栏显示图标 (可选，根据需求)
-    backgroundColor: '#00000000', // 设置窗口背景为完全透明
+    transparent: true, // Enable transparency
+    frame: false, // Disable frame
+    alwaysOnTop: true, // Keep on top (optional)
+    skipTaskbar: true, // Do not show icon in taskbar (optional)
+    backgroundColor: '#00000000', // Set window background to fully transparent
   });
-  // 初始设置鼠标穿透，但允许在特定区域捕获事件
-  // mainWindow.setIgnoreMouseEvents(true, { forward: true }); // 暂时注释，在 ready-to-show 后设置
-  // console.log('[Main Process] 鼠标穿透已在窗口创建时初始设置。');
+  // Initial mouse pass-through, allowing events in specific areas
+  // mainWindow.setIgnoreMouseEvents(true, { forward: true }); // Temporarily commented out, set after ready-to-show
+  // console.log('[Main Process] Mouse pass-through was initially set at window creation.');
 
   const startUrl = process.env.ELECTRON_START_URL || 'app:///index.html'; // Changed to app:///index.html
 
@@ -91,11 +91,11 @@ function createWindow() {
 
   mainWindow.webContents.once('ready-to-show', () => {
     mainWindow.show();
-    // 鼠标穿透状态现在由渲染进程通过IPC控制
-    console.log('[Main Process] 鼠标穿透状态将由渲染进程控制。');
+    // Mouse pass-through state will be controlled by the renderer process
+    console.log('[Main Process] Mouse pass-through state will be controlled by the renderer process.');
   });
 
-  // 在非打包模式下，如果不是通过 ELECTRON_START_URL 启动的开发模式，则不打开调试工具
+  // In non-packaged mode, do not open dev tools if not started via ELECTRON_START_URL
   if (!app.isPackaged && process.env.ELECTRON_START_URL) {
     mainWindow.webContents.openDevTools();
   }
@@ -104,7 +104,7 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // --- 开发者工具与鼠标穿透的交互处理 ---
+  // --- DevTools and Mouse Pass-through Interaction ---
   // mainWindow.webContents.on('devtools-opened', () => {
   //   console.log('[Main Process] DevTools opened, disabling mouse ignore.');
   //   mainWindow.setIgnoreMouseEvents(false);
@@ -112,8 +112,8 @@ function createWindow() {
 
   // mainWindow.webContents.on('devtools-closed', () => {
   //   console.log('[Main Process] DevTools closed, re-enabling mouse ignore.');
-  //   // 注意：这里我们假设默认状态是穿透的。
-  //   // 如果需要更复杂的逻辑，可以维护一个状态变量。
+  //   // Note: We assume the default state is pass-through.
+  //   // If more complex logic is needed, a state variable can be maintained.
   //   mainWindow.setIgnoreMouseEvents(true, { forward: true });
   // });
 }
@@ -145,17 +145,17 @@ async function startServices() {
     // Define backend commands as full command strings to handle quotes correctly
     // Note: CWD is crucial for scripts that use relative paths.
     const backendCommands = [
-      { name: 'LLM API', command: 'conda run -n my-neuro python app.py', cwd: path.join(__dirname, '..', 'LLM-studio') },
+      { name: 'LLM API', command: 'conda run -n my-neuro python LLM-studio/app.py', cwd: path.join(__dirname, '..') },
       { name: 'ASR API', command: 'conda run -n my-neuro python asr_api.py', cwd: path.join(__dirname, '..') },
-      { name: 'TTS API', command: 'conda run -n my-neuro python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ./tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en', cwd: path.join(__dirname, '..', 'tts-studio') },
+      { name: 'TTS API', command: 'conda run -n my-neuro python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ../tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en', cwd: path.join(__dirname, '..', 'tts-studio') },
       { name: 'BERT API', command: 'conda run -n my-neuro python bert_api.py', cwd: path.join(__dirname, '..') },
-      { name: 'Mnemosyne API', command: 'conda run -n my-neuro python api_go.py', cwd: path.join(__dirname, '..', 'Mnemosyne-bert') }
+      { name: 'Mnemosyne API', command: 'conda run -n my-neuro python Mnemosyne-bert/api_go.py', cwd: path.join(__dirname, '..') }
     ];
 
     // Start backend services sequentially
     console.log('[Main Process] Starting backend services sequentially...');
     for (const s of backendCommands) {
-      const fullCommand = `chcp 65001 && ${s.command}`;
+      const fullCommand = `set PYTHONIOENCODING=utf-8 && chcp 65001 && ${s.command}`;
       console.log(`[Main Process] Spawning: ${s.name} in CWD: ${s.cwd}`);
       console.log(`[Main Process] Executing command: ${fullCommand}`);
       
@@ -211,7 +211,7 @@ app.on('ready', async () => {
   // Start all services
   await startServices();
 
-  // --- 1. 正确地、同步地设置代理和DNS规则 ---
+  // --- 1. Set proxy and DNS rules correctly and synchronously ---
   // try {
   //   const proxyUrl = 'http://127.0.0.1:10808';
   //   await session.defaultSession.setProxy({
@@ -220,14 +220,14 @@ app.on('ready', async () => {
   //   });
   //   console.log(`[Main Process] Proxy rules set to: ${proxyUrl}`);
 
-  //   // 注意：不要在这里用主进程的fetch/axios来测试。
-  //   // setProxy的验证，应该通过观察渲染进程中的网络请求是否成功来进行。
+  //   // Note: Do not use fetch/axios in the main process to test this.
+  //   // Verification of setProxy should be done by observing if network requests in the renderer process succeed.
 
   // } catch (error) {
   //   console.error(`[Main Process] Failed to set proxy:`, error);
   // }
 
-  // --- 2. 注册自定义协议 ---
+  // --- 2. Register custom protocol ---
   protocol.registerFileProtocol('app', (request, callback) => {
     // Use URL parsing to correctly handle paths like '/index.html' or '/_app/...'
     // This prevents issues where '/_app' was being resolved relative to 'index.html'
@@ -260,7 +260,7 @@ app.on('ready', async () => {
     app.quit();
   }
 
-  // --- 创建系统托盘 ---
+  // --- Create System Tray ---
   const iconName = 'icon.png';
   const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'static', iconName)
@@ -270,14 +270,14 @@ app.on('ready', async () => {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: '重启',
+      label: 'Restart',
       click: () => {
         app.relaunch();
         app.exit();
       },
     },
     {
-      label: '退出',
+      label: 'Exit',
       click: () => {
         app.quit();
       },
@@ -287,7 +287,7 @@ app.on('ready', async () => {
   tray.setToolTip('My Neuro');
   tray.setContextMenu(contextMenu);
 
-  // --- 任务栏显示/隐藏的 IPC 监听器 ---
+  // --- IPC Listener for Taskbar Show/Hide ---
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
@@ -304,11 +304,22 @@ app.on('ready', async () => {
   });
 });
 
+const { exec } = require('child_process');
+
 app.on('before-quit', () => {
   console.log('[Main Process] Attempting to terminate all child processes...');
   childProcesses.forEach(p => {
-    console.log(`[Main Process] Killing process with PID: ${p.pid}`);
-    p.kill();
+    if (p.pid) {
+      console.log(`[Main Process] Forcefully killing process tree with PID: ${p.pid}`);
+      // Use taskkill on Windows to kill the process and all its children (/T) forcefully (/F).
+      exec(`taskkill /PID ${p.pid} /F /T`, (err, stdout, stderr) => {
+        if (err) {
+          console.error(`[Main Process] Failed to kill process ${p.pid}: ${stderr}`);
+          return;
+        }
+        console.log(`[Main Process] Successfully killed process tree for PID ${p.pid}`);
+      });
+    }
   });
 });
 
