@@ -145,11 +145,11 @@ async function startServices() {
     // Define backend commands as full command strings to handle quotes correctly
     // Note: CWD is crucial for scripts that use relative paths.
     const backendCommands = [
-      { name: 'LLM API', command: 'conda run -n my-neuro python LLM-studio/app.py', cwd: path.join(__dirname, '..') },
-      { name: 'ASR API', command: 'conda run -n my-neuro python asr_api.py', cwd: path.join(__dirname, '..') },
-      { name: 'TTS API', command: 'conda run -n my-neuro python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ../tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en', cwd: path.join(__dirname, '..', 'tts-studio') },
-      { name: 'BERT API', command: 'conda run -n my-neuro python bert_api.py', cwd: path.join(__dirname, '..') },
-      { name: 'Mnemosyne API', command: 'conda run -n my-neuro python Mnemosyne-bert/api_go.py', cwd: path.join(__dirname, '..') }
+      { name: 'LLM API', command: 'conda.bat activate my-neuro && python LLM-studio/app.py', cwd: path.join(__dirname, '..') },
+      { name: 'ASR API', command: 'conda.bat activate my-neuro && python asr_api.py', cwd: path.join(__dirname, '..') },
+      { name: 'TTS API', command: 'conda.bat activate my-neuro && python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ./tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en', cwd: path.join(__dirname, '..', 'tts-studio') },
+      { name: 'BERT API', command: 'conda.bat activate my-neuro && python bert_api.py', cwd: path.join(__dirname, '..') },
+      { name: 'Mnemosyne API', command: 'conda.bat activate my-neuro && python Mnemosyne-bert/api_go.py', cwd: path.join(__dirname, '..') }
     ];
 
     // Start backend services sequentially
