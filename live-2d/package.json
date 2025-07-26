@@ -50,7 +50,7 @@
     "watch:electron": "vite build --config vite.main.config.ts --watch",
     "start:electron:dev": "cross-env ELECTRON_START_URL=http://localhost:5173 npx nodemon",
     "dev:prepare": "npm run clean",
-    "dev:run": "concurrently --raw \"npm:dev:frontend\" \"npm:watch:electron\" \"npm:start:electron:dev\"",
+    "dev:run": "concurrently --raw \"chcp 65001 && npm run dev:frontend\" \"chcp 65001 && npm run watch:electron\" \"chcp 65001 && npm run start:electron:dev\"",
     "dev": "npm run dev:prepare && npm run dev:run",
     "dev:electron:start": "nodemon --watch \"dist-electron/**/*.cjs\" --ext cjs --exec \"electron electron.cjs\"",
     "start": "electron electron.cjs",

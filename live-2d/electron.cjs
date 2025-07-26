@@ -15,6 +15,10 @@ const {
 } = require('electron');
 const path = require('path');
 const url = require('url');
+const { spawn } = require('child_process');
+
+// To store references to child processes
+const childProcesses = [];
 
 // app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND , EXCLUDE 127.0.0.1, EXCLUDE localhost');
 // console.log('[Main Process] DNS resolver rules appended to force proxy DNS.');
@@ -128,8 +132,84 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+// --- 3. Service Management ---
+
+// Utility to introduce a delay
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function startServices() {
+  if (!app.isPackaged) {
+    // --- DEVELOPMENT ENVIRONMENT ---
+    console.log('[Main Process] Starting services for DEVELOPMENT...');
+
+    // Define backend commands as full command strings to handle quotes correctly
+    // Note: CWD is crucial for scripts that use relative paths.
+    const backendCommands = [
+      { name: 'LLM API', command: 'conda run -n my-neuro python app.py', cwd: path.join(__dirname, '..', 'LLM-studio') },
+      { name: 'ASR API', command: 'conda run -n my-neuro python asr_api.py', cwd: path.join(__dirname, '..') },
+      { name: 'TTS API', command: 'conda run -n my-neuro python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ./tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en', cwd: path.join(__dirname, '..', 'tts-studio') },
+      { name: 'BERT API', command: 'conda run -n my-neuro python bert_api.py', cwd: path.join(__dirname, '..') },
+      { name: 'Mnemosyne API', command: 'conda run -n my-neuro python api_go.py', cwd: path.join(__dirname, '..', 'Mnemosyne-bert') }
+    ];
+
+    // Start backend services sequentially
+    console.log('[Main Process] Starting backend services sequentially...');
+    for (const s of backendCommands) {
+      const fullCommand = `chcp 65001 && ${s.command}`;
+      console.log(`[Main Process] Spawning: ${s.name} in CWD: ${s.cwd}`);
+      console.log(`[Main Process] Executing command: ${fullCommand}`);
+      
+      const backendProcess = spawn(fullCommand, [], { // Pass empty args array
+        cwd: s.cwd, // Use the CWD specified for each command
+        shell: true,
+        stdio: 'pipe'
+      });
+
+      childProcesses.push(backendProcess);
+      console.log(`[Main Process] Spawned ${s.name} with PID: ${backendProcess.pid}`);
+      backendProcess.stdout.on('data', (data) => console.log(`[${s.name}]: ${data}`));
+      backendProcess.stderr.on('data', (data) => console.error(`[${s.name} ERR]: ${data}`));
+      await delay(10000); // Wait 10 seconds for the service to initialize
+    }
+    console.log('[Main Process] All backend services have been launched.');
+
+    // Frontend server is now handled by the external "concurrently" command.
+    // No need to start it from within Electron's main process in dev mode.
+
+  } else {
+    // --- PRODUCTION ENVIRONMENT ---
+    console.log('[Main Process] Starting services for PRODUCTION...');
+    const backendExes = [
+        { name: 'ASR API', exe: 'asr_api.exe' },
+        { name: 'TTS API', exe: 'tts_api.exe' },
+        { name: 'BERT API', exe: 'bert_api.exe' },
+        { name: 'Mnemosyne API', exe: 'api_go.exe' }
+    ];
+    
+    const backendPath = path.join(process.resourcesPath, 'backend');
+    
+    for (const s of backendExes) {
+        console.log(`[Main Process] Spawning: ${s.name}`);
+        const exePath = path.join(backendPath, s.exe);
+        const backendProcess = spawn(exePath, [], {
+            cwd: backendPath,
+            stdio: 'pipe'
+        });
+        childProcesses.push(backendProcess);
+        console.log(`[Main Process] Spawned ${s.name} with PID: ${backendProcess.pid}`);
+        backendProcess.stdout.on('data', (data) => console.log(`[${s.name}]: ${data}`));
+        backendProcess.stderr.on('data', (data) => console.error(`[${s.name} ERR]: ${data}`));
+        await delay(3000); // Wait 3 seconds for the service to initialize
+    }
+    console.log('[Main Process] All production backend services have been launched.');
+  }
+}
+
 app.on('ready', async () => {
   console.log('[Main Process] App is ready.');
+
+  // Start all services
+  await startServices();
 
   // --- 1. 正确地、同步地设置代理和DNS规则 ---
   // try {
@@ -221,6 +301,14 @@ app.on('ready', async () => {
     if (mainWindow) {
       mainWindow.setSize(width, height);
     }
+  });
+});
+
+app.on('before-quit', () => {
+  console.log('[Main Process] Attempting to terminate all child processes...');
+  childProcesses.forEach(p => {
+    console.log(`[Main Process] Killing process with PID: ${p.pid}`);
+    p.kill();
   });
 });
 
