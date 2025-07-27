@@ -46,7 +46,9 @@ class Live2DAppCore {
         clearInterval(this.ensureTopMostInterval);
         this.ensureTopMostInterval = null;
         // Do not log here, as the window object might already be destroyed.
-        console.log('[Main Process] Top-most interval cleared due to window closure.');
+        console.log(
+          '[Main Process] Top-most interval cleared due to window closure.'
+        );
       }
     });
   }

@@ -92,7 +92,9 @@ function createWindow() {
   mainWindow.webContents.once('ready-to-show', () => {
     mainWindow.show();
     // Mouse pass-through state will be controlled by the renderer process
-    console.log('[Main Process] Mouse pass-through state will be controlled by the renderer process.');
+    console.log(
+      '[Main Process] Mouse pass-through state will be controlled by the renderer process.'
+    );
   });
 
   // In non-packaged mode, do not open dev tools if not started via ELECTRON_START_URL
@@ -135,7 +137,7 @@ protocol.registerSchemesAsPrivileged([
 // --- 3. Service Management ---
 
 // Utility to introduce a delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function startServices() {
   if (!app.isPackaged) {
@@ -145,11 +147,33 @@ async function startServices() {
     // Define backend commands as full command strings to handle quotes correctly
     // Note: CWD is crucial for scripts that use relative paths.
     const backendCommands = [
-      { name: 'LLM API', command: 'conda.bat activate my-neuro && python LLM-studio/app.py', cwd: path.join(__dirname, '..') },
-      { name: 'ASR API', command: 'conda.bat activate my-neuro && python asr_api.py', cwd: path.join(__dirname, '..') },
-      { name: 'TTS API', command: 'conda.bat activate my-neuro && python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ./tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en', cwd: path.join(__dirname, '..', 'tts-studio') },
-      { name: 'BERT API', command: 'conda.bat activate my-neuro && python bert_api.py', cwd: path.join(__dirname, '..') },
-      { name: 'Mnemosyne API', command: 'conda.bat activate my-neuro && python Mnemosyne-bert/api_go.py', cwd: path.join(__dirname, '..') }
+      {
+        name: 'LLM API',
+        command: 'conda.bat activate my-neuro && python LLM-studio/app.py',
+        cwd: path.join(__dirname, '..'),
+      },
+      {
+        name: 'ASR API',
+        command: 'conda.bat activate my-neuro && python asr_api.py',
+        cwd: path.join(__dirname, '..'),
+      },
+      {
+        name: 'TTS API',
+        command:
+          'conda.bat activate my-neuro && python tts_api.py -p 5000 -d cuda -s ./tts-model/merge.pth -dr ./tts-model/neuro/01.wav -dt "Hold on please, I\'m busy. Okay, I think I heard him say he wants me to stream Hollow Knight on Tuesday and Thursday." -dl en',
+        cwd: path.join(__dirname, '..', 'tts-studio'),
+      },
+      {
+        name: 'BERT API',
+        command: 'conda.bat activate my-neuro && python bert_api.py',
+        cwd: path.join(__dirname, '..'),
+      },
+      {
+        name: 'Mnemosyne API',
+        command:
+          'conda.bat activate my-neuro && python Mnemosyne-bert/api_go.py',
+        cwd: path.join(__dirname, '..'),
+      },
     ];
 
     // Start backend services sequentially
@@ -158,50 +182,64 @@ async function startServices() {
       const fullCommand = `set PYTHONIOENCODING=utf-8 && chcp 65001 && ${s.command}`;
       console.log(`[Main Process] Spawning: ${s.name} in CWD: ${s.cwd}`);
       console.log(`[Main Process] Executing command: ${fullCommand}`);
-      
-      const backendProcess = spawn(fullCommand, [], { // Pass empty args array
+
+      const backendProcess = spawn(fullCommand, [], {
+        // Pass empty args array
         cwd: s.cwd, // Use the CWD specified for each command
         shell: true,
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
 
       childProcesses.push(backendProcess);
-      console.log(`[Main Process] Spawned ${s.name} with PID: ${backendProcess.pid}`);
-      backendProcess.stdout.on('data', (data) => console.log(`[${s.name}]: ${data}`));
-      backendProcess.stderr.on('data', (data) => console.error(`[${s.name} ERR]: ${data}`));
+      console.log(
+        `[Main Process] Spawned ${s.name} with PID: ${backendProcess.pid}`
+      );
+      backendProcess.stdout.on('data', (data) =>
+        console.log(`[${s.name}]: ${data}`)
+      );
+      backendProcess.stderr.on('data', (data) =>
+        console.error(`[${s.name} ERR]: ${data}`)
+      );
       await delay(10000); // Wait 10 seconds for the service to initialize
     }
     console.log('[Main Process] All backend services have been launched.');
 
     // Frontend server is now handled by the external "concurrently" command.
     // No need to start it from within Electron's main process in dev mode.
-
   } else {
     // --- PRODUCTION ENVIRONMENT ---
     console.log('[Main Process] Starting services for PRODUCTION...');
     const backendExes = [
-        { name: 'ASR API', exe: 'asr_api.exe' },
-        { name: 'TTS API', exe: 'tts_api.exe' },
-        { name: 'BERT API', exe: 'bert_api.exe' },
-        { name: 'Mnemosyne API', exe: 'api_go.exe' }
+      { name: 'ASR API', exe: 'asr_api.exe' },
+      { name: 'TTS API', exe: 'tts_api.exe' },
+      { name: 'BERT API', exe: 'bert_api.exe' },
+      { name: 'Mnemosyne API', exe: 'api_go.exe' },
     ];
-    
+
     const backendPath = path.join(process.resourcesPath, 'backend');
-    
+
     for (const s of backendExes) {
-        console.log(`[Main Process] Spawning: ${s.name}`);
-        const exePath = path.join(backendPath, s.exe);
-        const backendProcess = spawn(exePath, [], {
-            cwd: backendPath,
-            stdio: 'pipe'
-        });
-        childProcesses.push(backendProcess);
-        console.log(`[Main Process] Spawned ${s.name} with PID: ${backendProcess.pid}`);
-        backendProcess.stdout.on('data', (data) => console.log(`[${s.name}]: ${data}`));
-        backendProcess.stderr.on('data', (data) => console.error(`[${s.name} ERR]: ${data}`));
-        await delay(3000); // Wait 3 seconds for the service to initialize
+      console.log(`[Main Process] Spawning: ${s.name}`);
+      const exePath = path.join(backendPath, s.exe);
+      const backendProcess = spawn(exePath, [], {
+        cwd: backendPath,
+        stdio: 'pipe',
+      });
+      childProcesses.push(backendProcess);
+      console.log(
+        `[Main Process] Spawned ${s.name} with PID: ${backendProcess.pid}`
+      );
+      backendProcess.stdout.on('data', (data) =>
+        console.log(`[${s.name}]: ${data}`)
+      );
+      backendProcess.stderr.on('data', (data) =>
+        console.error(`[${s.name} ERR]: ${data}`)
+      );
+      await delay(3000); // Wait 3 seconds for the service to initialize
     }
-    console.log('[Main Process] All production backend services have been launched.');
+    console.log(
+      '[Main Process] All production backend services have been launched.'
+    );
   }
 }
 
@@ -308,16 +346,22 @@ const { exec } = require('child_process');
 
 app.on('before-quit', () => {
   console.log('[Main Process] Attempting to terminate all child processes...');
-  childProcesses.forEach(p => {
+  childProcesses.forEach((p) => {
     if (p.pid) {
-      console.log(`[Main Process] Forcefully killing process tree with PID: ${p.pid}`);
+      console.log(
+        `[Main Process] Forcefully killing process tree with PID: ${p.pid}`
+      );
       // Use taskkill on Windows to kill the process and all its children (/T) forcefully (/F).
       exec(`taskkill /PID ${p.pid} /F /T`, (err, stdout, stderr) => {
         if (err) {
-          console.error(`[Main Process] Failed to kill process ${p.pid}: ${stderr}`);
+          console.error(
+            `[Main Process] Failed to kill process ${p.pid}: ${stderr}`
+          );
           return;
         }
-        console.log(`[Main Process] Successfully killed process tree for PID ${p.pid}`);
+        console.log(
+          `[Main Process] Successfully killed process tree for PID ${p.pid}`
+        );
       });
     }
   });
