@@ -45,7 +45,8 @@ class Live2DAppCore {
       if (this.ensureTopMostInterval) {
         clearInterval(this.ensureTopMostInterval);
         this.ensureTopMostInterval = null;
-        this.logToTerminal('info', '强制置顶定时器已因窗口关闭而清除');
+        // Do not log here, as the window object might already be destroyed.
+        console.log('[Main Process] Top-most interval cleared due to window closure.');
       }
     });
   }
