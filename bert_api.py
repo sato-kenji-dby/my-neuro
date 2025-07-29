@@ -48,10 +48,6 @@ async def check_text(text: str):
     # 返回结果
     return {"text": text, "需要视觉": "是" if prediction == 1 else "否"}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=6006)
-
 @app.post("/check_distraction")
 async def check_distraction(request: DistractionCheckRequest):
     # 将任务描述和屏幕描述拼接起来进行BERT分析
@@ -67,7 +63,11 @@ async def check_distraction(request: DistractionCheckRequest):
         outputs = model(**inputs)
         prediction = outputs.logits.argmax(-1).item()
     
-    # 假设 prediction == 1 表示分心（与 /check 端点的逻辑保持一致）
-    is_distracted = True if prediction == 1 else False
+    # 假设 prediction == 0 表示分心（与 /check 端点的逻辑保持一致）
+    is_distracted = True if prediction == 0 else False
     
     return {"is_distracted": is_distracted}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=6006)

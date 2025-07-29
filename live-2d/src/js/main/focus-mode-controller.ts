@@ -78,8 +78,10 @@ class FocusModeController {
 
     // 2. 调用 VLM 获取图片描述
     // 使用 config.vision.system_prompt 作为 VLM 的提示
+    const vlmPrompt = this.visionConfig.system_prompt || '请根据这张截图的内容，判断用户是否在专心工作，务必简要地给出最终分析结果。';
+    this.logToTerminal('info', `VLM prompt: ${vlmPrompt}`);
     const imageDescription = await this.callVLMService(
-      this.visionConfig.system_prompt, // 使用 visionConfig 中的 system_prompt
+      vlmPrompt,
       screenshotData
     );
     if (!imageDescription) {
@@ -103,9 +105,11 @@ class FocusModeController {
       // 仅当 is_distracted 为 true 时，才调用 llmService.sendToLLM 生成提醒
       // LLM生成提醒时，使用 config.focus_mode.reminder_system_prompt 作为系统提示。
       try {
+        // 创建一个包含 reminderPrompt 的 Message 对象
+        const messages = [{ role: 'user' as const, content: reminderPrompt }];
         await this.llmService.sendToLLM(
-          reminderPrompt,
-          [], // 空的对话历史
+          null, // prompt 为 null，因为内容已在 messages 中
+          messages,
           this.focusModeConfig.reminder_system_prompt // 使用 focusModeConfig 中的 reminder_system_prompt
         );
         this.logToTerminal('info', '提醒消息已发送至 LLM/TTS。');
@@ -133,17 +137,21 @@ class FocusModeController {
 
     try {
       const apiUrl = `${this.visionConfig.api_url}/describe_image`;
+      const requestBody = {
+        prompt: prompt,
+        screenshot_data: screenshotData,
+        model: this.visionConfig.model,
+        api_key: this.visionConfig.api_key, // 传递 API Key
+      };
+      // 创建一个不包含 screenshot_data 的新对象用于日志记录
+      const loggableBody = { ...requestBody, screenshot_data: '[...base64 data...]', api_key: '[...api key...]' };
+      this.logToTerminal('info', `调用 VLM 服务: ${apiUrl}，请求体: ${JSON.stringify(loggableBody)}`);
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: prompt,
-          screenshot_data: screenshotData,
-          model: this.visionConfig.model,
-          api_key: this.visionConfig.api_key, // 传递 API Key
-        }),
+        body: JSON.stringify(requestBody),
       });
       if (!response.ok) {
         const errorBody = await response.text();
@@ -154,7 +162,8 @@ class FocusModeController {
       const data = await response.json();
       return data.description || '';
     } catch (error) {
-      this.logToTerminal('error', `调用 VLM 服务时出错: ${(error as Error).message}`);
+      // 避免在日志中打印完整的错误信息，因为它可能包含 base64 数据
+      this.logToTerminal('error', `调用 VLM 服务时出错，请检查 vlm-studio 服务日志。`);
       return '';
     }
   }

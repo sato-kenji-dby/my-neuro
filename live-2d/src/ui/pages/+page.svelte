@@ -79,13 +79,23 @@
   let chatMessages: { role: string; content: string }[] = [];
 
   // 新增的专注模式状态和函数
-  let isFocusMode = false;
+  let focusModeTask = '';
+  let isFocusModeActive = false;
 
-  function toggleFocusMode() {
-    isFocusMode = !isFocusMode;
-    console.log(`专注模式已${isFocusMode ? '开启' : '关闭'}`);
-    // 这里可以添加更多专注模式的逻辑，例如隐藏其他UI元素，调整模型行为等
-    // 暂时只做日志输出
+  function startFocusMode() {
+    if (focusModeTask.trim()) {
+      window.ipcRenderer.send('start-focus-mode', focusModeTask);
+      isFocusModeActive = true;
+      console.log('发送启动专注模式请求:', focusModeTask);
+    } else {
+      alert('请输入专注任务！');
+    }
+  }
+
+  function stopFocusMode() {
+    window.ipcRenderer.send('stop-focus-mode');
+    isFocusModeActive = false;
+    console.log('发送停止专注模式请求');
   }
 
   // PIXI 和 Live2D 实例
@@ -478,14 +488,32 @@
       </textarea>
     </div>
 
-    <!-- 专注模式按钮 -->
-    <button
-      id="focus-mode-button"
-      on:click={toggleFocusMode}
-      class="rounded-full bg-blue-600 px-6 py-3 text-lg font-bold text-white shadow-lg transition-colors duration-200 hover:bg-blue-700"
-    >
-      开始专注模式
-    </button>
+    <!-- 专注模式控制 -->
+    <div class="focus-mode-controls flex flex-col items-center space-y-2">
+      <input
+        type="text"
+        placeholder="输入专注任务..."
+        bind:value={focusModeTask}
+        disabled={isFocusModeActive}
+        class="w-full rounded-lg border-2 border-slate-700 bg-slate-800/80 p-3 text-slate-200 transition-all duration-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <div class="flex w-full space-x-2">
+        <button
+          on:click={startFocusMode}
+          disabled={isFocusModeActive}
+          class="flex-1 rounded-full bg-blue-600 px-6 py-3 text-lg font-bold text-white shadow-lg transition-colors duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-600"
+        >
+          开始专注
+        </button>
+        <button
+          on:click={stopFocusMode}
+          disabled={!isFocusModeActive}
+          class="flex-1 rounded-full bg-red-600 px-6 py-3 text-lg font-bold text-white shadow-lg transition-colors duration-200 hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-600"
+        >
+          停止专注
+        </button>
+      </div>
+    </div>
   </div>
 
   <div
