@@ -71,8 +71,7 @@ class LLMService {
   async sendToLLM(
     prompt: string,
     messages: Message[],
-    systemInstruction: string,
-    screenshotData?: string
+    systemInstruction: string
   ) {
     try {
       stateManager.isProcessingUserInput = true;
@@ -136,9 +135,6 @@ class LLMService {
         stream: true, // 默认流式传输
       };
 
-      if (screenshotData) {
-        requestBody.screenshot_data = screenshotData;
-      }
 
       // MCP 工具调用逻辑
       if (this.mcpClientModule && this.mcpClientModule.isConnected) {

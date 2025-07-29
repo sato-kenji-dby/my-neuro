@@ -6,21 +6,15 @@ import type { EmotionMotionMapper } from '../renderer/emotion-motion-mapper'; //
 import { stateManager } from './state-manager'; // 导入 StateManager
 import type { LLMService } from './llm-service'; // 导入 LLMService 类型
 import type { ScreenshotService } from './screenshot-service'; // 导入 ScreenshotService 类型
+import type { AppConfig } from '$types/global';
 
-// 定义配置接口
+// 明确定义 VoiceChatInterface 需要的配置结构
+// 这避免了对全局 AppConfig 的完全依赖，并解决了类型解析问题
 interface VoiceChatConfig {
-  context: {
-    max_messages: number;
-    enable_limit: boolean;
-  };
-  memory: {
-    file_path: string;
-    check_url: string;
-  };
-  llm: {
-    // 仍然需要 llm 配置来获取 system_prompt
-    system_prompt: string;
-  };
+  context: AppConfig['context'];
+  memory: AppConfig['memory'];
+  llm: AppConfig['llm'];
+  vision: AppConfig['vision'];
 }
 
 // 定义消息接口
@@ -255,6 +249,47 @@ ${memoryContent}`;
     }
   }
 
+  // 新增：调用独立的 VLM 服务
+  private async callVLMService(
+    prompt: string,
+    screenshotData: string
+  ): Promise<string> {
+    const visionConfig = this.config.vision;
+    if (!visionConfig?.api_url || !visionConfig?.model || !visionConfig?.api_key) {
+      console.error('VLM 配置不完整，缺少 api_url, model, 或 api_key。');
+      return '';
+    }
+
+    try {
+      const apiUrl = `${visionConfig.api_url}/describe_image`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          screenshot_data: screenshotData,
+          model: visionConfig.model,
+          api_key: visionConfig.api_key, // 传递 API Key
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `VLM 服务请求失败，状态码: ${response.status}, 响应: ${errorBody}`
+        );
+      }
+
+      const data = await response.json();
+      return data.description || '';
+    } catch (error: unknown) {
+      console.error('调用 VLM 服务时出错:', (error as Error).message);
+      return ''; // 出错时返回空字符串
+    }
+  }
+
   // 发送消息到LLM
   async sendToLLM(prompt: string) {
     try {
@@ -273,22 +308,38 @@ ${memoryContent}`;
         throw new Error('System prompt is not a string or not found.');
       }
 
-      let screenshotData: string | undefined;
+      let finalPrompt = prompt; // 最终发送给 LLM 的提示
+
       const needScreenshot =
         await this.screenshotService.shouldTakeScreenshot(prompt);
       if (needScreenshot) {
+        console.log('需要截图，开始获取视觉信息...');
         const screenshotPath = await this.screenshotService.takeScreenshot();
         if (screenshotPath) {
-          screenshotData =
+          const screenshotData =
             await this.screenshotService.imageToBase64(screenshotPath);
+          
+          // 调用新的 VLM 服务获取图片描述
+          const imageDescription = await this.callVLMService(
+            prompt,
+            screenshotData
+          );
+
+          if (imageDescription) {
+            console.log('VLM 返回的描述:', imageDescription);
+            // 将原始提示和图片描述拼接
+            finalPrompt = `用户问题: "${prompt}"\n\n根据用户屏幕截图所见,补充信息如下:\n${imageDescription}`;
+          } else {
+            console.log('VLM 未返回有效描述，仅使用原始文本。');
+          }
         }
       }
 
+      // 注意：现在调用 llmService 时不再传递 screenshotData
       const fullResponse = await this.llmService.sendToLLM(
-        prompt,
+        finalPrompt,
         this.messages,
-        systemInstruction,
-        screenshotData
+        systemInstruction
       );
 
       if (fullResponse) {

@@ -53,13 +53,35 @@ class ConfigLoader {
 
   // 处理特殊路径，比如将 ~ 展开为用户主目录
   processSpecialPaths() {
-    if (this.config?.vision && this.config.vision.screenshot_path) {
-      // 使用可选链操作符
-      if (!this.config.vision.screenshot) {
-        this.config.vision.screenshot = { path: '' }; // 初始化 path 属性
+    if (this.config?.vision?.screenshot_path) {
+      let processedPath = this.config.vision.screenshot_path.replace(
+        /^~/,
+        os.homedir()
+      );
+
+      // 确保路径指向一个目录，而不是一个文件
+      // 如果路径以 .jpg, .png, .jpeg 等结尾，则取其父目录
+      if (/\.(jpg|jpeg|png|bmp|gif)$/i.test(processedPath)) {
+        console.warn(
+          `警告: screenshot_path ('${processedPath}')似乎是一个文件。将使用其父目录。`
+        );
+        processedPath = path.dirname(processedPath);
       }
-      this.config.vision.screenshot.path =
-        this.config.vision.screenshot_path.replace(/^~/, os.homedir());
+
+      // 直接更新原始属性
+      this.config.vision.screenshot_path = processedPath;
+
+      // 确保目录存在
+      try {
+        if (!fs.existsSync(processedPath)) {
+          fs.mkdirSync(processedPath, { recursive: true });
+          console.log(`已创建截图目录: ${processedPath}`);
+        }
+      } catch (error: unknown) {
+        console.error(
+          `创建截图目录失败: ${(error as Error).message}`
+        );
+      }
     }
   }
 

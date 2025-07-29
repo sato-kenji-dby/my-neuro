@@ -211,14 +211,9 @@ class Live2DAppCore {
     // 创建语音聊天接口
     this.voiceChat = new VoiceChatInterface(
       this.ttsProcessor,
-      this.llmService!, // 传递 LLMService 实例
-      this.screenshotService!, // 传递 ScreenshotService 实例
-      {
-        // 传入 VoiceChatConfig 结构
-        context: this.config.context,
-        memory: this.config.memory,
-        llm: this.config.llm, // 确保 llm 配置也传递过去
-      }
+      this.llmService!,
+      this.screenshotService!,
+      this.config // 直接传递整个 config 对象
     );
 
     // 初始化时增强系统提示
@@ -524,8 +519,7 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: AppConfig) {
         const fullResponse = await live2dAppCore.llmService.sendToLLM(
           prompt,
           messages,
-          systemInstruction,
-          screenshotData
+          systemInstruction
         );
         return { success: true, data: fullResponse };
       } catch (error: unknown) {

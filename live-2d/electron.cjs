@@ -148,6 +148,11 @@ async function startServices() {
     // Note: CWD is crucial for scripts that use relative paths.
     const backendCommands = [
       {
+        name: 'VLM API',
+        command: 'conda.bat activate my-neuro && python vlm-studio/app.py',
+        cwd: path.join(__dirname, '..'),
+      },
+      {
         name: 'LLM API',
         command: 'conda.bat activate my-neuro && python LLM-studio/app.py',
         cwd: path.join(__dirname, '..'),

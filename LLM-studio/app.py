@@ -105,7 +105,6 @@ class GenerateContentRequest(BaseModel):
     system_instruction: Optional[str] = None
     temperature: Optional[float] = None
     thinking_budget: Optional[int] = None
-    screenshot_data: Optional[str] = None # Base64 编码的图片数据
 
 # 新增：LLM 配置更新模型
 class LLMConfigUpdate(BaseModel):
@@ -359,15 +358,6 @@ async def generate_content(request_data: GenerateContentRequest):
         if request_data.prompt:
             contents.append(types.Content(role='user', parts=[types.Part(text=request_data.prompt)]))
 
-        # 处理多模态输入 (如果 prompt 之后有图片，则添加到最后)
-        if request_data.screenshot_data:
-            try:
-                image_bytes = base64.b64decode(request_data.screenshot_data)
-                image = Image.open(io.BytesIO(image_bytes))
-                contents.append(image)
-            except Exception as e:
-                print(f"Error decoding image: {e}")
-                raise HTTPException(status_code=400, detail="Invalid screenshot_data format")
 
 
         # 构建 GenerateContentConfig

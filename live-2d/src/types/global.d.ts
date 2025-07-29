@@ -60,6 +60,11 @@ export interface VisionConfig {
   check_url: string;
   screenshot_path: string;
   auto_screenshot: boolean;
+  api_key: string; // 添加 VLM API Key
+  api_url: string; // 添加 VLM API URL
+  provider: string; // 添加 VLM Provider
+  model: string; // 添加 VLM Model
+  system_prompt: string; // 添加 VLM System Prompt
 }
 
 // 定义 UI 相关的配置接口
