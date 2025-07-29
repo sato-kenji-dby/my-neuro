@@ -189,7 +189,7 @@ class LLMService {
               }
               try {
                 const data = JSON.parse(line.slice(6));
-                this.logToTerminal('debug', `LLM流式数据块: ${JSON.stringify(data)}`); // 打印原始数据块
+                // this.logToTerminal('debug', `LLM流式数据块: ${JSON.stringify(data)}`); // 打印原始数据块
                 if (data.text) {
                   // 后端返回的流式数据是 { text: "..." }
                   const newContent = data.text;

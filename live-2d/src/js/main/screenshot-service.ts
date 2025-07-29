@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { desktopCapturer, screen, nativeImage } from 'electron'; // 导入 desktopCapturer, screen, nativeImage
 
 interface ScreenshotServiceConfig {
   enabled: boolean;
@@ -10,7 +11,7 @@ interface ScreenshotServiceConfig {
 
 class ScreenshotService {
   private config: ScreenshotServiceConfig;
-  private mainWindow: Electron.BrowserWindow;
+  private mainWindow: Electron.BrowserWindow; // 尽管不直接用于截图，但可能用于获取显示信息
   private logToTerminal: (level: string, message: string) => void;
 
   constructor(
@@ -23,18 +24,54 @@ class ScreenshotService {
     this.logToTerminal = logToTerminal;
   }
 
-  // 添加截图功能
+  // 修改截图功能以捕获整个屏幕
   async takeScreenshot(): Promise<string | null> {
     try {
-      const image = await this.mainWindow.webContents.capturePage();
-      const buffer = image.toPNG();
+      // 获取所有屏幕源
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'], // 只获取屏幕源
+        thumbnailSize: { width: 1920, height: 1080 }, // 请求一个较大的缩略图，以确保质量
+      });
+
+      this.logToTerminal('debug', `desktopCapturer.getSources 返回 ${sources.length} 个源。`);
+      sources.forEach((s, i) => {
+        this.logToTerminal('debug', `源 ${i}: ID=${s.id}, Name=${s.name}, DisplayID=${s.display_id}`);
+      });
+
+      // 找到主屏幕源
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const primaryScreenSource = sources.find(
+        (source) => source.display_id === String(primaryDisplay.id)
+      );
+
+      if (!primaryScreenSource) {
+        this.logToTerminal('error', '未找到主屏幕源，无法截图。');
+        return null;
+      }
+
+      this.logToTerminal('debug', `找到主屏幕源: ID=${primaryScreenSource.id}, Name=${primaryScreenSource.name}`);
+
+      // 使用 primaryScreenSource.thumbnail 获取 NativeImage
+      // 尽管名称是 thumbnail，但对于 'screen' 类型，它通常是全尺寸的
+      const fullScreenImage = primaryScreenSource.thumbnail;
+
+      if (fullScreenImage.isEmpty()) {
+        this.logToTerminal('error', '捕获到的屏幕图像为空。这可能表示权限问题或显示器未就绪。');
+        return null;
+      }
+
+      const buffer = fullScreenImage.toPNG();
       const filename = `screenshot-${Date.now()}.png`;
       const filepath = path.join(this.config.screenshot_path, filename);
       fs.writeFileSync(filepath, buffer);
-      this.logToTerminal('info', '截图已保存:' + filepath);
+      this.logToTerminal('info', '全屏截图已保存:' + filepath);
       return filepath;
     } catch (error: unknown) {
-      this.logToTerminal('error', `截图错误: ${(error as Error).message}`);
+      this.logToTerminal('error', `全屏截图错误: ${(error as Error).message}`);
+      // 针对 Windows 权限问题，可以尝试提供提示
+      if (process.platform === 'win32' && (error as Error).message.includes('Access denied')) {
+        this.logToTerminal('error', 'Windows 权限错误：请确保应用程序具有屏幕录制权限。');
+      }
       return null;
     }
   }
