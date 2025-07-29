@@ -354,9 +354,11 @@ async def generate_content(request_data: GenerateContentRequest):
                 gemini_role = 'model' if role == 'assistant' else role
                 contents.append(types.Content(role=gemini_role, parts=parts))
         
-        # 将 prompt 添加到 contents 的末尾作为新的用户消息
-        if request_data.prompt:
-            contents.append(types.Content(role='user', parts=[types.Part(text=request_data.prompt)]))
+        # 如果 prompt 存在，将其作为当前用户消息的一部分，而不是单独添加
+        # 因为现在 voice-chat.ts 会将 VLM 描述和用户问题合并到 messages 历史中
+        # 所以这里不再需要单独处理 prompt
+        # if request_data.prompt:
+        #     contents.append(types.Content(role='user', parts=[types.Part(text=request_data.prompt)]))
 
 
 

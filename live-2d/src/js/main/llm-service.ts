@@ -69,7 +69,7 @@ class LLMService {
   }
 
   async sendToLLM(
-    prompt: string,
+    prompt: string | null, // 允许 prompt 为 null
     messages: Message[],
     systemInstruction: string
   ) {

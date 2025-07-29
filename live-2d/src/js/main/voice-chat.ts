@@ -293,13 +293,8 @@ ${memoryContent}`;
   // 发送消息到LLM
   async sendToLLM(prompt: string) {
     try {
-      // 保存用户消息到上下文（只保存文本）
-      this.messages.push({ role: 'user', content: prompt });
-
-      // 先进行裁剪，确保只保留最新的消息
-      if (this.enableContextLimit) {
-        this.trimMessages();
-      }
+      // 初始的用户消息内容
+      let userMessageContent = prompt;
 
       const systemInstruction = this.messages.find(
         (m) => m.role === 'system'
@@ -307,8 +302,6 @@ ${memoryContent}`;
       if (typeof systemInstruction !== 'string') {
         throw new Error('System prompt is not a string or not found.');
       }
-
-      let finalPrompt = prompt; // 最终发送给 LLM 的提示
 
       const needScreenshot =
         await this.screenshotService.shouldTakeScreenshot(prompt);
@@ -321,23 +314,31 @@ ${memoryContent}`;
           
           // 调用新的 VLM 服务获取图片描述
           const imageDescription = await this.callVLMService(
-            prompt,
+            prompt, // 原始用户提示作为VLM的上下文
             screenshotData
           );
 
           if (imageDescription) {
             console.log('VLM 返回的描述:', imageDescription);
-            // 将原始提示和图片描述拼接
-            finalPrompt = `用户问题: "${prompt}"\n\n根据用户屏幕截图所见,补充信息如下:\n${imageDescription}`;
+            // 将原始提示和图片描述拼接，作为最终的用户消息内容
+            userMessageContent = `用户问题: "${prompt}"\n\n根据用户屏幕截图所见,补充信息如下:\n${imageDescription}`;
           } else {
             console.log('VLM 未返回有效描述，仅使用原始文本。');
           }
         }
       }
 
-      // 注意：现在调用 llmService 时不再传递 screenshotData
+      // 将最终的用户消息内容推入上下文
+      this.messages.push({ role: 'user', content: userMessageContent });
+
+      // 先进行裁剪，确保只保留最新的消息
+      if (this.enableContextLimit) {
+        this.trimMessages();
+      }
+
+      // 调用 llmService，prompt 参数现在可以为 null，因为完整内容已在 messages 中
       const fullResponse = await this.llmService.sendToLLM(
-        finalPrompt,
+        null, // prompt 为 null，LLM后端应主要依赖 messages
         this.messages,
         systemInstruction
       );

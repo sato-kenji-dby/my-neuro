@@ -164,6 +164,21 @@ class TTSProcessor {
     try {
       // TTS的输入文本应该是原始的、未经翻译的文本
       const cleanedOriginalSegment = originalSegment.replace(/<[^>]+>/g, '');
+      
+      // 如果清理后的文本段为空或只包含空白符，则跳过TTS请求
+      if (!cleanedOriginalSegment.trim()) {
+        this.ipcSender('debug', `TTS请求跳过：文本段在清理后为空或只含空白符。原始段落: "${originalSegment}"`);
+        this.isPlaying = false; // 释放播放锁
+        this.playNextInQueue(); // 继续处理队列中的下一个
+        return; 
+      }
+
+      // 增加日志，打印实际发送给TTS后端的文本和语言
+      this.ipcSender(
+        'debug',
+        `发送TTS请求: URL=${this.ttsUrl}, Text="${cleanedOriginalSegment}", Language="${this.language}"`
+      );
+
       const response = await fetch(this.ttsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
