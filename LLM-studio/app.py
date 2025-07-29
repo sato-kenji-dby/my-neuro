@@ -381,9 +381,14 @@ async def generate_content(request_data: GenerateContentRequest):
                 )
 
                 for chunk in responses:
-                    if chunk.text:
+                    # 确保即使 chunk.text 为空，也发送一个包含空字符串的 text 字段
+                    # 或者在流结束时，如果之前没有文本，也发送一个空文本块
+                    if chunk.text is not None: # 检查是否为 None，而不是空字符串
                         print(f"{chunk.text}____")
                         yield f"data: {json.dumps({'text': chunk.text})}\n\n"
+                    # else:
+                    #     # 如果 chunk.text 为 None，可以考虑发送一个空文本块，但通常不需要
+                    #     # yield f"data: {json.dumps({'text': ''})}\n\n"
 
             except Exception as e:
                 print(f"Error during Gemini API call: {e}")

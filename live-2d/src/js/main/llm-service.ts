@@ -183,9 +183,13 @@ class LLMService {
           const lines = text.split('\n');
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              if (line.includes('[DONE]')) continue;
+              if (line.includes('[DONE]')) {
+                this.logToTerminal('info', 'LLM流式响应结束。');
+                continue;
+              }
               try {
                 const data = JSON.parse(line.slice(6));
+                this.logToTerminal('debug', `LLM流式数据块: ${JSON.stringify(data)}`); // 打印原始数据块
                 if (data.text) {
                   // 后端返回的流式数据是 { text: "..." }
                   const newContent = data.text;

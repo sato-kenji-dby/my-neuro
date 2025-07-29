@@ -136,3 +136,5 @@ dist-electron
 test-data/
 
 release/
+
+*.png
