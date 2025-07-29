@@ -1,0 +1,192 @@
+import type { ScreenshotService } from './screenshot-service';
+import type { LLMService } from './llm-service';
+import type { FocusModeConfig, VisionConfig } from '$types/global'; // 从 global.d.ts 导入
+
+class FocusModeController {
+  private screenshotService: ScreenshotService;
+  private llmService: LLMService;
+  private focusModeConfig: FocusModeConfig; // 重命名为 focusModeConfig
+  private visionConfig: VisionConfig; // 添加 visionConfig
+  private logToTerminal: (level: string, message: string) => void; // 添加日志函数
+  private timer: NodeJS.Timeout | null = null;
+  private currentTask: string | null = null;
+  private isRunning: boolean = false;
+
+  constructor(
+    screenshotService: ScreenshotService,
+    llmService: LLMService,
+    focusModeConfig: FocusModeConfig, // 接收 FocusModeConfig
+    visionConfig: VisionConfig, // 接收 VisionConfig
+    logToTerminal: (level: string, message: string) => void // 接收日志函数
+  ) {
+    this.screenshotService = screenshotService;
+    this.llmService = llmService;
+    this.focusModeConfig = focusModeConfig;
+    this.visionConfig = visionConfig;
+    this.logToTerminal = logToTerminal;
+  }
+
+  public startFocusMode(task: string) { // 重命名为 startFocusMode
+    if (this.isRunning) {
+      this.logToTerminal('warn', '专注模式已在运行中，请先停止。');
+      return;
+    }
+    if (!task) {
+      this.logToTerminal('error', '无法启动专注模式：未提供任务描述。');
+      return;
+    }
+
+    this.currentTask = task;
+    this.isRunning = true;
+    this.logToTerminal('info', `专注模式已启动，任务: "${task}"`);
+
+    // 立即执行一次，然后设置定时器
+    this.checkFocus();
+    this.timer = setInterval(() => this.checkFocus(), this.focusModeConfig.interval);
+  }
+
+  public stopFocusMode() { // 重命名为 stopFocusMode
+    if (!this.isRunning) {
+      this.logToTerminal('warn', '专注模式尚未启动。');
+      return;
+    }
+
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    this.isRunning = false;
+    this.currentTask = null;
+    this.logToTerminal('info', '专注模式已停止。');
+  }
+
+  private async checkFocus() {
+    if (!this.isRunning || !this.currentTask) {
+      return;
+    }
+
+    this.logToTerminal('info', '专注模式：正在检查用户是否分心...');
+
+    // 1. 截图
+    const screenshotPath = await this.screenshotService.takeScreenshot();
+    if (!screenshotPath) {
+      this.logToTerminal('error', '专注模式：截图失败，无法继续检查。');
+      return;
+    }
+    const screenshotData =
+      await this.screenshotService.imageToBase64(screenshotPath);
+
+    // 2. 调用 VLM 获取图片描述
+    // 使用 config.vision.system_prompt 作为 VLM 的提示
+    const imageDescription = await this.callVLMService(
+      this.visionConfig.system_prompt, // 使用 visionConfig 中的 system_prompt
+      screenshotData
+    );
+    if (!imageDescription) {
+      this.logToTerminal('error', '专注模式：VLM 未返回描述，无法判断是否分心。');
+      return;
+    }
+    this.logToTerminal('info', `VLM 描述: ${imageDescription}`);
+
+    // 3. 调用 BERT API 判断是否分心
+    const isDistracted = await this.checkDistractionWithBERT(
+      this.currentTask,
+      imageDescription
+    );
+    this.logToTerminal('info', `是否分心: ${isDistracted}`);
+
+    // 4. 如果分心，则触发 LLM 生成提醒
+    if (isDistracted) {
+      this.logToTerminal('warn', '用户已分心，准备生成提醒...');
+      const reminderPrompt = `用户当前的任务是“${this.currentTask}”，但他似乎正在做其他事情（“${imageDescription}”）。请生成一句简短、友好但明确的提醒，让他回到任务上来。`;
+
+      // 仅当 is_distracted 为 true 时，才调用 llmService.sendToLLM 生成提醒
+      // LLM生成提醒时，使用 config.focus_mode.reminder_system_prompt 作为系统提示。
+      try {
+        await this.llmService.sendToLLM(
+          reminderPrompt,
+          [], // 空的对话历史
+          this.focusModeConfig.reminder_system_prompt // 使用 focusModeConfig 中的 reminder_system_prompt
+        );
+        this.logToTerminal('info', '提醒消息已发送至 LLM/TTS。');
+      } catch (error) {
+        this.logToTerminal('error', `发送提醒消息到 LLM 时出错: ${(error as Error).message}`);
+      }
+    } else {
+      this.logToTerminal('info', '用户正在专注，无需提醒。');
+    }
+  }
+
+  private async callVLMService(
+    prompt: string,
+    screenshotData: string
+  ): Promise<string> {
+    // 使用 this.visionConfig
+    if (
+      !this.visionConfig?.api_url ||
+      !this.visionConfig?.model ||
+      !this.visionConfig?.api_key
+    ) {
+      this.logToTerminal('error', 'VLM 配置不完整，缺少 api_url, model, 或 api_key。');
+      return '';
+    }
+
+    try {
+      const apiUrl = `${this.visionConfig.api_url}/describe_image`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          screenshot_data: screenshotData,
+          model: this.visionConfig.model,
+          api_key: this.visionConfig.api_key, // 传递 API Key
+        }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `VLM 服务请求失败，状态码: ${response.status}, 响应: ${errorBody}`
+        );
+      }
+      const data = await response.json();
+      return data.description || '';
+    } catch (error) {
+      this.logToTerminal('error', `调用 VLM 服务时出错: ${(error as Error).message}`);
+      return '';
+    }
+  }
+
+  private async checkDistractionWithBERT(
+    task: string,
+    vlmDescription: string
+  ): Promise<boolean> {
+    try {
+      // BERT API 需要扩展，这里我们先假设它有一个 /check_distraction 端点
+      const response = await fetch('http://127.0.0.1:6006/check_distraction', { // 使用 BERT API 的正确端口 6006
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_description: task,
+          screen_description: vlmDescription,
+        }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`BERT 分心检查 API 请求失败，状态码: ${response.status}, 响应: ${errorBody}`);
+      }
+      const data = await response.json();
+      // 假设 API 返回 { "is_distracted": true/false }
+      return data.is_distracted === true;
+    } catch (error) {
+      this.logToTerminal('error', `调用 BERT 分心检查 API 时出错: ${(error as Error).message}`);
+      return false; // 默认不打扰用户
+    }
+  }
+}
+
+export { FocusModeController };

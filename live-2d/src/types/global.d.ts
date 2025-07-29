@@ -142,7 +142,15 @@ export interface AppConfig {
   auto_chat: AutoChatConfig;
   mcp: MCPConfig;
   translator: TranslatorConfig;
+  focus_mode: FocusModeConfig; // 添加 FocusModeConfig
   // voiceChat: VoiceChatConfig; // 移除，因为 context 和 memory 是顶级配置
+}
+
+// 定义 FocusMode 相关的配置接口
+export interface FocusModeConfig {
+  enabled: boolean;
+  interval: number;
+  reminder_system_prompt: string;
 }
 
 declare global {

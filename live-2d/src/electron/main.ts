@@ -13,6 +13,7 @@ import { MCPClientModule } from '$js/main/mcp-client-module';
 import { stateManager } from '$js/main/state-manager';
 import { LLMService } from '$js/main/llm-service'; // 导入 LLMService
 import { ScreenshotService } from '$js/main/screenshot-service'; // 导入 ScreenshotService
+import { FocusModeController } from '$js/main/focus-mode-controller'; // 导入 FocusModeController
 
 // 全局变量，用于存储 Live2DAppCore 实例
 let live2dAppCore: Live2DAppCore;
@@ -31,6 +32,7 @@ class Live2DAppCore {
   public mcpClientModule: MCPClientModule | undefined;
   public llmService: LLMService | undefined; // 添加 LLMService 实例
   public screenshotService: ScreenshotService | undefined; // 添加 ScreenshotService 实例
+  public focusModeController: FocusModeController | undefined; // 添加 FocusModeController 实例
   private config: AppConfig | undefined; // 确保 config 在 Live2DAppCore 中可用
 
   private barrageQueue: { nickname: string; text: string }[] = [];
@@ -205,6 +207,15 @@ class Live2DAppCore {
     this.screenshotService = new ScreenshotService(
       this.config.vision,
       this.mainWindow,
+      (level, message) => this.logToTerminal(level, message)
+    );
+
+    // 创建 FocusModeController
+    this.focusModeController = new FocusModeController(
+      this.screenshotService!,
+      this.llmService!,
+      this.config.focus_mode,
+      this.config.vision,
       (level, message) => this.logToTerminal(level, message)
     );
 
@@ -577,6 +588,22 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: AppConfig) {
         config.ui.intro_text || '你好，我叫fake neuro。'
       );
     }, 1000);
+  });
+
+  // 监听前端启动专注模式的请求
+  ipcMain.on('start-focus-mode', (_, taskDescription: string) => {
+    live2dAppCore?.logToTerminal('info', `主进程收到启动专注模式请求，任务描述: ${taskDescription}`);
+    if (live2dAppCore?.focusModeController) {
+      live2dAppCore.focusModeController.startFocusMode(taskDescription);
+    }
+  });
+
+  // 监听前端停止专注模式的请求
+  ipcMain.on('stop-focus-mode', () => {
+    live2dAppCore?.logToTerminal('info', '主进程收到停止专注模式请求');
+    if (live2dAppCore?.focusModeController) {
+      live2dAppCore.focusModeController.stopFocusMode();
+    }
   });
 
   ipcMain.on('shutdown-app-core', () => {
