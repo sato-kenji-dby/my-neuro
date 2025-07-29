@@ -135,7 +135,6 @@ class LLMService {
         stream: true, // 默认流式传输
       };
 
-
       // MCP 工具调用逻辑
       if (this.mcpClientModule && this.mcpClientModule.isConnected) {
         const tools = this.mcpClientModule.getToolsForLLM();

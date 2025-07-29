@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { desktopCapturer, screen, nativeImage } from 'electron'; // 导入 desktopCapturer, screen, nativeImage
+import { desktopCapturer, screen } from 'electron'; // 导入 desktopCapturer, screen, nativeImage
 
 interface ScreenshotServiceConfig {
   enabled: boolean;
@@ -33,9 +33,15 @@ class ScreenshotService {
         thumbnailSize: { width: 1920, height: 1080 }, // 请求一个较大的缩略图，以确保质量
       });
 
-      this.logToTerminal('debug', `desktopCapturer.getSources 返回 ${sources.length} 个源。`);
+      this.logToTerminal(
+        'debug',
+        `desktopCapturer.getSources 返回 ${sources.length} 个源。`
+      );
       sources.forEach((s, i) => {
-        this.logToTerminal('debug', `源 ${i}: ID=${s.id}, Name=${s.name}, DisplayID=${s.display_id}`);
+        this.logToTerminal(
+          'debug',
+          `源 ${i}: ID=${s.id}, Name=${s.name}, DisplayID=${s.display_id}`
+        );
       });
 
       // 找到主屏幕源
@@ -49,14 +55,20 @@ class ScreenshotService {
         return null;
       }
 
-      this.logToTerminal('debug', `找到主屏幕源: ID=${primaryScreenSource.id}, Name=${primaryScreenSource.name}`);
+      this.logToTerminal(
+        'debug',
+        `找到主屏幕源: ID=${primaryScreenSource.id}, Name=${primaryScreenSource.name}`
+      );
 
       // 使用 primaryScreenSource.thumbnail 获取 NativeImage
       // 尽管名称是 thumbnail，但对于 'screen' 类型，它通常是全尺寸的
       const fullScreenImage = primaryScreenSource.thumbnail;
 
       if (fullScreenImage.isEmpty()) {
-        this.logToTerminal('error', '捕获到的屏幕图像为空。这可能表示权限问题或显示器未就绪。');
+        this.logToTerminal(
+          'error',
+          '捕获到的屏幕图像为空。这可能表示权限问题或显示器未就绪。'
+        );
         return null;
       }
 
@@ -69,8 +81,14 @@ class ScreenshotService {
     } catch (error: unknown) {
       this.logToTerminal('error', `全屏截图错误: ${(error as Error).message}`);
       // 针对 Windows 权限问题，可以尝试提供提示
-      if (process.platform === 'win32' && (error as Error).message.includes('Access denied')) {
-        this.logToTerminal('error', 'Windows 权限错误：请确保应用程序具有屏幕录制权限。');
+      if (
+        process.platform === 'win32' &&
+        (error as Error).message.includes('Access denied')
+      ) {
+        this.logToTerminal(
+          'error',
+          'Windows 权限错误：请确保应用程序具有屏幕录制权限。'
+        );
       }
       return null;
     }

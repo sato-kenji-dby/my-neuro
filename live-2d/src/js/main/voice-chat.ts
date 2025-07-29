@@ -255,7 +255,11 @@ ${memoryContent}`;
     screenshotData: string
   ): Promise<string> {
     const visionConfig = this.config.vision;
-    if (!visionConfig?.api_url || !visionConfig?.model || !visionConfig?.api_key) {
+    if (
+      !visionConfig?.api_url ||
+      !visionConfig?.model ||
+      !visionConfig?.api_key
+    ) {
       console.error('VLM 配置不完整，缺少 api_url, model, 或 api_key。');
       return '';
     }
@@ -311,7 +315,7 @@ ${memoryContent}`;
         if (screenshotPath) {
           const screenshotData =
             await this.screenshotService.imageToBase64(screenshotPath);
-          
+
           // 调用新的 VLM 服务获取图片描述
           const imageDescription = await this.callVLMService(
             prompt, // 原始用户提示作为VLM的上下文

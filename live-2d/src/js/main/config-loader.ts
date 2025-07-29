@@ -78,9 +78,7 @@ class ConfigLoader {
           console.log(`已创建截图目录: ${processedPath}`);
         }
       } catch (error: unknown) {
-        console.error(
-          `创建截图目录失败: ${(error as Error).message}`
-        );
+        console.error(`创建截图目录失败: ${(error as Error).message}`);
       }
     }
   }

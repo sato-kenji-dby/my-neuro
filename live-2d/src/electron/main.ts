@@ -509,7 +509,7 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: AppConfig) {
   // 新增：处理 LLM 请求的 IPC 处理器
   ipcMain.handle(
     'call-llm-service',
-    async (event, { prompt, messages, systemInstruction, screenshotData }) => {
+    async (event, { prompt, messages, systemInstruction }) => {
       // live2dAppCore?.logToTerminal('info', `主进程收到 LLM 请求，模型: ${live2dAppCore?.llmService?.config.model}`);
       try {
         if (!live2dAppCore?.llmService) {
