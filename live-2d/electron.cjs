@@ -51,6 +51,21 @@ process.on('unhandledRejection', (reason, promise) => {
 let mainWindow;
 let tray = null;
 
+// Ensure only one instance of the application runs
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
@@ -138,6 +153,29 @@ protocol.registerSchemesAsPrivileged([
 
 // Utility to introduce a delay
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Helper to get backend process identifiers for cleanup
+function getBackendProcessIdentifiers() {
+  if (!app.isPackaged) {
+    // Development environment
+    return [
+      'vlm-studio/app.py',
+      'LLM-studio/app.py',
+      'asr_api.py',
+      'tts_api.py',
+      'bert_api.py',
+      'Mnemosyne-bert/api_go.py',
+    ];
+  } else {
+    // Production environment
+    return [
+      'asr_api.exe',
+      'tts_api.exe',
+      'bert_api.exe',
+      'api_go.exe', // Mnemosyne API
+    ];
+  }
+}
 
 async function startServices() {
   if (!app.isPackaged) {
@@ -361,10 +399,8 @@ app.on('before-quit', async (event) => {
 
   const terminationPromises = childProcesses.map(async (p) => {
     if (p.pid && !p.killed) {
-      // 检查进程是否存在且未被杀死
       console.log(`[Main Process] Sending SIGTERM to PID: ${p.pid}`);
       try {
-        // 尝试发送 SIGTERM 信号进行优雅关闭
         process.kill(p.pid, 'SIGTERM');
       } catch (err) {
         console.warn(
@@ -372,38 +408,109 @@ app.on('before-quit', async (event) => {
         );
       }
 
-      // 等待一段时间，让进程有机会优雅关闭
       await new Promise((resolve) => setTimeout(resolve, 5000)); // 等待 5 秒
 
-      // 检查进程是否仍然存在
       try {
-        // 在 Windows 上，process.kill 可能会抛出错误如果进程不存在。
-        // 更好的方法是尝试发送一个信号，如果成功则进程存在。
-        // 或者使用 tasklist /FI "PID eq <pid>" 来检查。
-        // 为了简化，我们假设如果 kill 成功，进程就存在。
-        // 再次尝试发送一个信号，如果失败则认为进程已退出
-        process.kill(p.pid, 0); // 发送信号 0，检查进程是否存在
-        console.log(
-          `[Main Process] PID ${p.pid} still alive after SIGTERM, force killing...`
-        );
-        // 如果进程仍然存在，则强制终止进程树
         await execPromise(`taskkill /PID ${p.pid} /F /T`);
         console.log(
           `[Main Process] Successfully force killed process tree for PID ${p.pid}`
         );
       } catch (err) {
-        // 如果发送信号 0 失败，说明进程已经退出
         console.log(
-          `[Main Process] PID ${p.pid} has exited gracefully or was already terminated.`
+          `[Main Process] Error during force kill attempt for PID ${p.pid}: ${err.message}. It might have already exited.`
         );
       }
     }
   });
 
-  await Promise.allSettled(terminationPromises); // 等待所有子进程终止操作完成
+  await Promise.allSettled(terminationPromises);
 
   console.log(
-    '[Main Process] All child processes termination attempts completed. Exiting application.'
+    '[Main Process] All child processes termination attempts completed. Performing additional cleanup for potential orphans and npm processes...'
+  );
+
+  // Additional cleanup for potential orphan processes (Python backends)
+  const backendIdentifiers = getBackendProcessIdentifiers();
+  for (const identifier of backendIdentifiers) {
+    console.log(`[Main Process] Searching for orphan processes matching: ${identifier}`);
+    try {
+      let command;
+      if (identifier.endsWith('.py')) {
+        command = `wmic process where "name='python.exe' and CommandLine like '%${identifier.replace(/\\/g, '\\\\')}%'" get ProcessId /value`;
+      } else {
+        command = `tasklist /FI "IMAGENAME eq ${identifier}" /NH /FO CSV`;
+      }
+
+      const { stdout } = await execPromise(command);
+      const pidsToKill = [];
+
+      if (identifier.endsWith('.py')) {
+        stdout.split('\n').forEach(line => {
+          const match = line.match(/ProcessId=(\d+)/);
+          if (match) {
+            pidsToKill.push(match[1]);
+          }
+        });
+      } else {
+        stdout.split('\n').forEach(line => {
+          const parts = line.split(',');
+          if (parts.length > 1) {
+            const pid = parts[1].replace(/"/g, '').trim();
+            if (!isNaN(parseInt(pid))) {
+              pidsToKill.push(pid);
+            }
+          }
+        });
+      }
+
+      for (const pid of pidsToKill) {
+        console.log(`[Main Process] Found potential orphan PID ${pid} for ${identifier}. Attempting to force kill...`);
+        try {
+          await execPromise(`taskkill /PID ${pid} /F /T`);
+          console.log(`[Main Process] Successfully force killed orphan process tree for PID ${pid}`);
+        } catch (killErr) {
+          console.warn(`[Main Process] Failed to force kill orphan PID ${pid}: ${killErr.message}. It might have already exited.`);
+        }
+      }
+    } catch (searchErr) {
+      console.log(`[Main Process] No orphan processes found or error during search for ${identifier}: ${searchErr.message}`);
+    }
+  }
+
+  // Cleanup for npm start processes
+  console.log('[Main Process] Searching for and terminating npm start related processes...');
+  try {
+    const { stdout: npmStdout } = await execPromise(`tasklist /FI "IMAGENAME eq node.exe" /NH /FO CSV`);
+    const nodePids = [];
+    npmStdout.split('\n').forEach(line => {
+      const parts = line.split(',');
+      if (parts.length > 1) {
+        const pid = parts[1].replace(/"/g, '').trim();
+        if (!isNaN(parseInt(pid))) {
+          nodePids.push(pid);
+        }
+      }
+    });
+
+    for (const pid of nodePids) {
+      try {
+        // Check if the process command line contains 'npm start' or 'electron .'
+        const { stdout: cmdlineStdout } = await execPromise(`wmic process where "ProcessId=${pid}" get CommandLine /value`);
+        if (cmdlineStdout.includes('npm start') || cmdlineStdout.includes('electron .')) {
+          console.log(`[Main Process] Found npm/electron related process PID ${pid}. Attempting to force kill...`);
+          await execPromise(`taskkill /PID ${pid} /F /T`);
+          console.log(`[Main Process] Successfully force killed npm/electron process tree for PID ${pid}`);
+        }
+      } catch (killErr) {
+        console.warn(`[Main Process] Failed to force kill npm/electron PID ${pid}: ${killErr.message}. It might have already exited.`);
+      }
+    }
+  } catch (searchErr) {
+    console.log(`[Main Process] No npm/electron processes found or error during search: ${searchErr.message}`);
+  }
+
+  console.log(
+    '[Main Process] All child processes, potential orphans, and npm processes termination attempts completed. Exiting application.'
   );
   app.exit(); // 手动退出应用
 });
