@@ -26,7 +26,8 @@ class FocusModeController {
     this.logToTerminal = logToTerminal;
   }
 
-  public startFocusMode(task: string) { // 重命名为 startFocusMode
+  public startFocusMode(task: string) {
+    // 重命名为 startFocusMode
     if (this.isRunning) {
       this.logToTerminal('warn', '专注模式已在运行中，请先停止。');
       return;
@@ -42,10 +43,14 @@ class FocusModeController {
 
     // 立即执行一次，然后设置定时器
     this.checkFocus();
-    this.timer = setInterval(() => this.checkFocus(), this.focusModeConfig.interval);
+    this.timer = setInterval(
+      () => this.checkFocus(),
+      this.focusModeConfig.interval
+    );
   }
 
-  public stopFocusMode() { // 重命名为 stopFocusMode
+  public stopFocusMode() {
+    // 重命名为 stopFocusMode
     if (!this.isRunning) {
       this.logToTerminal('warn', '专注模式尚未启动。');
       return;
@@ -80,18 +85,24 @@ class FocusModeController {
     // VLM 的提示现在包含任务描述，并要求 VLM 直接判断专注状态
     const vlmPrompt = `请根据这张截图的内容，并结合用户当前的任务“${this.currentTask}”，判断用户是否在专心工作。只需要简要地给出最终判断结果，其中明确指出“专注”或“分心”。当前判断方式为识别你的分析内容是否包含“分心”字符。`;
     this.logToTerminal('info', `VLM prompt: ${vlmPrompt}`);
-    const vlmAnalysisResult = await this.callVLMService( // 更改变量名以反映 VLM 的新职责
+    const vlmAnalysisResult = await this.callVLMService(
+      // 更改变量名以反映 VLM 的新职责
       vlmPrompt,
       screenshotData
     );
     if (!vlmAnalysisResult) {
-      this.logToTerminal('error', '专注模式：VLM 未返回分析结果，无法判断是否分心。');
+      this.logToTerminal(
+        'error',
+        '专注模式：VLM 未返回分析结果，无法判断是否分心。'
+      );
       return;
     }
     this.logToTerminal('info', `VLM 分析结果: ${vlmAnalysisResult}`);
 
     // 3. 直接在前端判断是否分心（基于 VLM 的分析结果）
-    const isDistracted = vlmAnalysisResult.includes("分心") || vlmAnalysisResult.toLowerCase().includes("distracted");
+    const isDistracted =
+      vlmAnalysisResult.includes('分心') ||
+      vlmAnalysisResult.toLowerCase().includes('distracted');
     this.logToTerminal('info', `是否分心: ${isDistracted}`);
 
     // 4. 如果分心，则触发 LLM 生成提醒
@@ -112,7 +123,10 @@ class FocusModeController {
         );
         this.logToTerminal('info', '提醒消息已发送至 LLM/TTS。');
       } catch (error) {
-        this.logToTerminal('error', `发送提醒消息到 LLM 时出错: ${(error as Error).message}`);
+        this.logToTerminal(
+          'error',
+          `发送提醒消息到 LLM 时出错: ${(error as Error).message}`
+        );
       }
     } else {
       this.logToTerminal('info', '用户正在专注，无需提醒。');
@@ -129,7 +143,10 @@ class FocusModeController {
       !this.visionConfig?.model ||
       !this.visionConfig?.api_key
     ) {
-      this.logToTerminal('error', 'VLM 配置不完整，缺少 api_url, model, 或 api_key。');
+      this.logToTerminal(
+        'error',
+        'VLM 配置不完整，缺少 api_url, model, 或 api_key。'
+      );
       return '';
     }
 
@@ -142,8 +159,15 @@ class FocusModeController {
         api_key: this.visionConfig.api_key, // 传递 API Key
       };
       // 创建一个不包含 screenshot_data 的新对象用于日志记录
-      const loggableBody = { ...requestBody, screenshot_data: '[...base64 data...]', api_key: '[...api key...]' };
-      this.logToTerminal('info', `调用 VLM 服务: ${apiUrl}，请求体: ${JSON.stringify(loggableBody)}`);
+      const loggableBody = {
+        ...requestBody,
+        screenshot_data: '[...base64 data...]',
+        api_key: '[...api key...]',
+      };
+      this.logToTerminal(
+        'info',
+        `调用 VLM 服务: ${apiUrl}，请求体: ${JSON.stringify(loggableBody)}`
+      );
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -159,13 +183,15 @@ class FocusModeController {
       }
       const data = await response.json();
       return data.description || '';
-    } catch (error) {
+    } catch (error: unknown) {
       // 避免在日志中打印完整的错误信息，因为它可能包含 base64 数据
-      this.logToTerminal('error', `调用 VLM 服务时出错，请检查 vlm-studio 服务日志。`);
+      this.logToTerminal(
+        'error',
+        `调用 VLM 服务时出错，请检查 vlm-studio 服务日志。错误: ${(error as Error).message}`
+      );
       return '';
     }
   }
-
 }
 
 export { FocusModeController };

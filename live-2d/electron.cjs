@@ -348,28 +348,64 @@ app.on('ready', async () => {
 });
 
 const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
-app.on('before-quit', () => {
-  console.log('[Main Process] Attempting to terminate all child processes...');
-  childProcesses.forEach((p) => {
-    if (p.pid) {
-      console.log(
-        `[Main Process] Forcefully killing process tree with PID: ${p.pid}`
-      );
-      // Use taskkill on Windows to kill the process and all its children (/T) forcefully (/F).
-      exec(`taskkill /PID ${p.pid} /F /T`, (err, stdout, stderr) => {
-        if (err) {
-          console.error(
-            `[Main Process] Failed to kill process ${p.pid}: ${stderr}`
-          );
-          return;
-        }
-        console.log(
-          `[Main Process] Successfully killed process tree for PID ${p.pid}`
+app.on('before-quit', async (event) => {
+  // 阻止默认的退出行为，以便我们可以在异步操作完成后手动退出
+  event.preventDefault();
+
+  console.log(
+    '[Main Process] Attempting to terminate all child processes gracefully...'
+  );
+
+  const terminationPromises = childProcesses.map(async (p) => {
+    if (p.pid && !p.killed) {
+      // 检查进程是否存在且未被杀死
+      console.log(`[Main Process] Sending SIGTERM to PID: ${p.pid}`);
+      try {
+        // 尝试发送 SIGTERM 信号进行优雅关闭
+        process.kill(p.pid, 'SIGTERM');
+      } catch (err) {
+        console.warn(
+          `[Main Process] Failed to send SIGTERM to PID ${p.pid}: ${err.message}`
         );
-      });
+      }
+
+      // 等待一段时间，让进程有机会优雅关闭
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // 等待 5 秒
+
+      // 检查进程是否仍然存在
+      try {
+        // 在 Windows 上，process.kill 可能会抛出错误如果进程不存在。
+        // 更好的方法是尝试发送一个信号，如果成功则进程存在。
+        // 或者使用 tasklist /FI "PID eq <pid>" 来检查。
+        // 为了简化，我们假设如果 kill 成功，进程就存在。
+        // 再次尝试发送一个信号，如果失败则认为进程已退出
+        process.kill(p.pid, 0); // 发送信号 0，检查进程是否存在
+        console.log(
+          `[Main Process] PID ${p.pid} still alive after SIGTERM, force killing...`
+        );
+        // 如果进程仍然存在，则强制终止进程树
+        await execPromise(`taskkill /PID ${p.pid} /F /T`);
+        console.log(
+          `[Main Process] Successfully force killed process tree for PID ${p.pid}`
+        );
+      } catch (err) {
+        // 如果发送信号 0 失败，说明进程已经退出
+        console.log(
+          `[Main Process] PID ${p.pid} has exited gracefully or was already terminated.`
+        );
+      }
     }
   });
+
+  await Promise.allSettled(terminationPromises); // 等待所有子进程终止操作完成
+
+  console.log(
+    '[Main Process] All child processes termination attempts completed. Exiting application.'
+  );
+  app.exit(); // 手动退出应用
 });
 
 app.on('window-all-closed', () => {

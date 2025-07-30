@@ -592,7 +592,10 @@ function registerIpcHandlers(mainWindow: BrowserWindow, config: AppConfig) {
 
   // 监听前端启动专注模式的请求
   ipcMain.on('start-focus-mode', (_, taskDescription: string) => {
-    live2dAppCore?.logToTerminal('info', `主进程收到启动专注模式请求，任务描述: ${taskDescription}`);
+    live2dAppCore?.logToTerminal(
+      'info',
+      `主进程收到启动专注模式请求，任务描述: ${taskDescription}`
+    );
     if (live2dAppCore?.focusModeController) {
       live2dAppCore.focusModeController.startFocusMode(taskDescription);
     }
