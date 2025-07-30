@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { desktopCapturer, screen } from 'electron'; // 导入 desktopCapturer, screen, nativeImage
 
 interface ScreenshotServiceConfig {

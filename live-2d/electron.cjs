@@ -432,7 +432,9 @@ app.on('before-quit', async (event) => {
   // Additional cleanup for potential orphan processes (Python backends)
   const backendIdentifiers = getBackendProcessIdentifiers();
   for (const identifier of backendIdentifiers) {
-    console.log(`[Main Process] Searching for orphan processes matching: ${identifier}`);
+    console.log(
+      `[Main Process] Searching for orphan processes matching: ${identifier}`
+    );
     try {
       let command;
       if (identifier.endsWith('.py')) {
@@ -445,14 +447,14 @@ app.on('before-quit', async (event) => {
       const pidsToKill = [];
 
       if (identifier.endsWith('.py')) {
-        stdout.split('\n').forEach(line => {
+        stdout.split('\n').forEach((line) => {
           const match = line.match(/ProcessId=(\d+)/);
           if (match) {
             pidsToKill.push(match[1]);
           }
         });
       } else {
-        stdout.split('\n').forEach(line => {
+        stdout.split('\n').forEach((line) => {
           const parts = line.split(',');
           if (parts.length > 1) {
             const pid = parts[1].replace(/"/g, '').trim();
@@ -464,25 +466,37 @@ app.on('before-quit', async (event) => {
       }
 
       for (const pid of pidsToKill) {
-        console.log(`[Main Process] Found potential orphan PID ${pid} for ${identifier}. Attempting to force kill...`);
+        console.log(
+          `[Main Process] Found potential orphan PID ${pid} for ${identifier}. Attempting to force kill...`
+        );
         try {
           await execPromise(`taskkill /PID ${pid} /F /T`);
-          console.log(`[Main Process] Successfully force killed orphan process tree for PID ${pid}`);
+          console.log(
+            `[Main Process] Successfully force killed orphan process tree for PID ${pid}`
+          );
         } catch (killErr) {
-          console.warn(`[Main Process] Failed to force kill orphan PID ${pid}: ${killErr.message}. It might have already exited.`);
+          console.warn(
+            `[Main Process] Failed to force kill orphan PID ${pid}: ${killErr.message}. It might have already exited.`
+          );
         }
       }
     } catch (searchErr) {
-      console.log(`[Main Process] No orphan processes found or error during search for ${identifier}: ${searchErr.message}`);
+      console.log(
+        `[Main Process] No orphan processes found or error during search for ${identifier}: ${searchErr.message}`
+      );
     }
   }
 
   // Cleanup for npm start processes
-  console.log('[Main Process] Searching for and terminating npm start related processes...');
+  console.log(
+    '[Main Process] Searching for and terminating npm start related processes...'
+  );
   try {
-    const { stdout: npmStdout } = await execPromise(`tasklist /FI "IMAGENAME eq node.exe" /NH /FO CSV`);
+    const { stdout: npmStdout } = await execPromise(
+      `tasklist /FI "IMAGENAME eq node.exe" /NH /FO CSV`
+    );
     const nodePids = [];
-    npmStdout.split('\n').forEach(line => {
+    npmStdout.split('\n').forEach((line) => {
       const parts = line.split(',');
       if (parts.length > 1) {
         const pid = parts[1].replace(/"/g, '').trim();
@@ -495,18 +509,31 @@ app.on('before-quit', async (event) => {
     for (const pid of nodePids) {
       try {
         // Check if the process command line contains 'npm start' or 'electron .'
-        const { stdout: cmdlineStdout } = await execPromise(`wmic process where "ProcessId=${pid}" get CommandLine /value`);
-        if (cmdlineStdout.includes('npm start') || cmdlineStdout.includes('electron .')) {
-          console.log(`[Main Process] Found npm/electron related process PID ${pid}. Attempting to force kill...`);
+        const { stdout: cmdlineStdout } = await execPromise(
+          `wmic process where "ProcessId=${pid}" get CommandLine /value`
+        );
+        if (
+          cmdlineStdout.includes('npm start') ||
+          cmdlineStdout.includes('electron .')
+        ) {
+          console.log(
+            `[Main Process] Found npm/electron related process PID ${pid}. Attempting to force kill...`
+          );
           await execPromise(`taskkill /PID ${pid} /F /T`);
-          console.log(`[Main Process] Successfully force killed npm/electron process tree for PID ${pid}`);
+          console.log(
+            `[Main Process] Successfully force killed npm/electron process tree for PID ${pid}`
+          );
         }
       } catch (killErr) {
-        console.warn(`[Main Process] Failed to force kill npm/electron PID ${pid}: ${killErr.message}. It might have already exited.`);
+        console.warn(
+          `[Main Process] Failed to force kill npm/electron PID ${pid}: ${killErr.message}. It might have already exited.`
+        );
       }
     }
   } catch (searchErr) {
-    console.log(`[Main Process] No npm/electron processes found or error during search: ${searchErr.message}`);
+    console.log(
+      `[Main Process] No npm/electron processes found or error during search: ${searchErr.message}`
+    );
   }
 
   console.log(
