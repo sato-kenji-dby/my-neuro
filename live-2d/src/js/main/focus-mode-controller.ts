@@ -76,31 +76,29 @@ class FocusModeController {
     const screenshotData =
       await this.screenshotService.imageToBase64(screenshotPath);
 
-    // 2. 调用 VLM 获取图片描述
-    // 使用 config.vision.system_prompt 作为 VLM 的提示
-    const vlmPrompt = this.visionConfig.system_prompt || '请根据这张截图的内容，判断用户是否在专心工作，务必简要地给出最终分析结果。';
+    // 2. 调用 VLM 获取图片描述和专注判断
+    // VLM 的提示现在包含任务描述，并要求 VLM 直接判断专注状态
+    const vlmPrompt = `请根据这张截图的内容，并结合用户当前的任务“${this.currentTask}”，判断用户是否在专心工作。只需要简要地给出最终判断结果，其中明确指出“专注”或“分心”。当前判断方式为识别你的分析内容是否包含“分心”字符。`;
     this.logToTerminal('info', `VLM prompt: ${vlmPrompt}`);
-    const imageDescription = await this.callVLMService(
+    const vlmAnalysisResult = await this.callVLMService( // 更改变量名以反映 VLM 的新职责
       vlmPrompt,
       screenshotData
     );
-    if (!imageDescription) {
-      this.logToTerminal('error', '专注模式：VLM 未返回描述，无法判断是否分心。');
+    if (!vlmAnalysisResult) {
+      this.logToTerminal('error', '专注模式：VLM 未返回分析结果，无法判断是否分心。');
       return;
     }
-    this.logToTerminal('info', `VLM 描述: ${imageDescription}`);
+    this.logToTerminal('info', `VLM 分析结果: ${vlmAnalysisResult}`);
 
-    // 3. 调用 BERT API 判断是否分心
-    const isDistracted = await this.checkDistractionWithBERT(
-      this.currentTask,
-      imageDescription
-    );
+    // 3. 直接在前端判断是否分心（基于 VLM 的分析结果）
+    const isDistracted = vlmAnalysisResult.includes("分心") || vlmAnalysisResult.toLowerCase().includes("distracted");
     this.logToTerminal('info', `是否分心: ${isDistracted}`);
 
     // 4. 如果分心，则触发 LLM 生成提醒
     if (isDistracted) {
       this.logToTerminal('warn', '用户已分心，准备生成提醒...');
-      const reminderPrompt = `用户当前的任务是“${this.currentTask}”，但他似乎正在做其他事情（“${imageDescription}”）。请生成一句简短、友好但明确的提醒，让他回到任务上来。`;
+      // 提醒提示现在可以更直接地基于 VLM 的分析结果
+      const reminderPrompt = `用户当前的任务是“${this.currentTask}”，VLM分析结果显示：“${vlmAnalysisResult}”。请生成一句简短、友好但明确的提醒，让他回到任务上来。`;
 
       // 仅当 is_distracted 为 true 时，才调用 llmService.sendToLLM 生成提醒
       // LLM生成提醒时，使用 config.focus_mode.reminder_system_prompt 作为系统提示。
@@ -168,34 +166,6 @@ class FocusModeController {
     }
   }
 
-  private async checkDistractionWithBERT(
-    task: string,
-    vlmDescription: string
-  ): Promise<boolean> {
-    try {
-      // BERT API 需要扩展，这里我们先假设它有一个 /check_distraction 端点
-      const response = await fetch('http://127.0.0.1:6006/check_distraction', { // 使用 BERT API 的正确端口 6006
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          task_description: task,
-          screen_description: vlmDescription,
-        }),
-      });
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`BERT 分心检查 API 请求失败，状态码: ${response.status}, 响应: ${errorBody}`);
-      }
-      const data = await response.json();
-      // 假设 API 返回 { "is_distracted": true/false }
-      return data.is_distracted === true;
-    } catch (error) {
-      this.logToTerminal('error', `调用 BERT 分心检查 API 时出错: ${(error as Error).message}`);
-      return false; // 默认不打扰用户
-    }
-  }
 }
 
 export { FocusModeController };
