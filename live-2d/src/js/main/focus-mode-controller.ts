@@ -73,13 +73,11 @@ class FocusModeController {
     this.logToTerminal('info', '专注模式：正在检查用户是否分心...');
 
     // 1. 截图
-    const screenshotPath = await this.screenshotService.takeScreenshot();
-    if (!screenshotPath) {
+    const screenshotData = await this.screenshotService.takeScreenshot(); // 直接获取 Base64 数据
+    if (!screenshotData) {
       this.logToTerminal('error', '专注模式：截图失败，无法继续检查。');
       return;
     }
-    const screenshotData =
-      await this.screenshotService.imageToBase64(screenshotPath);
 
     // 2. 调用 VLM 获取图片描述和专注判断
     // VLM 的提示现在包含任务描述，并要求 VLM 直接判断专注状态
@@ -152,9 +150,15 @@ class FocusModeController {
 
     try {
       const apiUrl = `${this.visionConfig.api_url}/describe_image`;
+      // 检查并移除 Data URL 前缀
+      let cleanedScreenshotData = screenshotData;
+      if (screenshotData.startsWith('data:')) {
+        cleanedScreenshotData = screenshotData.split(',')[1];
+      }
+
       const requestBody = {
         prompt: prompt,
-        screenshot_data: screenshotData,
+        screenshot_data: cleanedScreenshotData, // 使用清理后的数据
         model: this.visionConfig.model,
         api_key: this.visionConfig.api_key, // 传递 API Key
       };

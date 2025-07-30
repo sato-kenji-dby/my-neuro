@@ -72,15 +72,12 @@ class ScreenshotService {
         return null;
       }
 
-      const buffer = fullScreenImage.toPNG();
-      const filename = `screenshot-${Date.now()}.png`;
-      const filepath = path.join(this.config.screenshot_path, filename);
-      fs.writeFileSync(filepath, buffer);
-      this.logToTerminal('info', '全屏截图已保存:' + filepath);
-      return filepath;
+      // 直接将 NativeImage 转换为 Base64 Data URL
+      const base64DataUrl = fullScreenImage.toDataURL();
+      this.logToTerminal('info', '全屏截图已直接转换为 Base64 Data URL。');
+      return base64DataUrl; // 返回 Base64 Data URL
     } catch (error: unknown) {
       this.logToTerminal('error', `全屏截图错误: ${(error as Error).message}`);
-      // 针对 Windows 权限问题，可以尝试提供提示
       if (
         process.platform === 'win32' &&
         (error as Error).message.includes('Access denied')
@@ -94,20 +91,7 @@ class ScreenshotService {
     }
   }
 
-  // 将图片转换为base64编码
-  async imageToBase64(imagePath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      fs.readFile(imagePath, (err, data) => {
-        if (err) {
-          this.logToTerminal('error', '读取图片失败:' + err);
-          reject(err);
-          return;
-        }
-        const base64Image = Buffer.from(data).toString('base64');
-        resolve(base64Image);
-      });
-    });
-  }
+  // imageToBase64 方法将不再需要，因为它已被 takeScreenshot 替代
 
   // 判断是否需要截图
   async shouldTakeScreenshot(text: string): Promise<boolean> {

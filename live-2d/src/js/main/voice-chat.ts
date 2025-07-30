@@ -311,11 +311,8 @@ ${memoryContent}`;
         await this.screenshotService.shouldTakeScreenshot(prompt);
       if (needScreenshot) {
         console.log('需要截图，开始获取视觉信息...');
-        const screenshotPath = await this.screenshotService.takeScreenshot();
-        if (screenshotPath) {
-          const screenshotData =
-            await this.screenshotService.imageToBase64(screenshotPath);
-
+        const screenshotData = await this.screenshotService.takeScreenshot(); // 直接获取 Base64 数据
+        if (screenshotData) {
           // 调用新的 VLM 服务获取图片描述
           const imageDescription = await this.callVLMService(
             prompt, // 原始用户提示作为VLM的上下文
