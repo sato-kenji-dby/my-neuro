@@ -7,7 +7,8 @@
 **本项目是 [morettt/my-neuro](https://github.com/morettt/my-neuro) 的一个 fork 版本，主要进行了以下工作：**
 
 *   **前端重构**: 使用 SvelteKit + TypeScript + Tailwind CSS 对 `live-2d` 前端应用进行了完全重构，提升了代码质量、可维护性和开发体验。
-*   **功能迭代**: 在原项目基础上进行功能优化和新功能探索。
+*   **架构优化**: 对 Electron 的主进程和渲染进程进行了清晰的分离，引入了事件驱动和集中式状态管理，并解决了大量启动流程和进程管理方面的问题。
+*   **功能迭代**: 在原项目基础上进行功能优化和新功能探索，如专注模式、高级字幕系统等。
 
 ## 核心功能
 
@@ -17,7 +18,12 @@
     *   **语音**: 支持通过 GPT-SoVITS，MoeGoe 等项目训练和定制声音。
     *   **形象**: 支持替换 Live2D 模型。
     *   **性格**: 支持通过调整提示词或微调模型来塑造 AI 性格。
-*   **视觉能力**: 集成视觉模型，可根据对话意图识别图像。
+*   **本地视觉能力**: 通过本地部署的VLM（视觉语言模型）实现全屏内容理解，截图数据无需上传至云端，保护用户隐私。
+*   **专注模式**: 可设定当前任务，AI 伙伴将通过视觉能力判断用户是否分心并给予提醒。
+*   **高级桌面看板**:
+    *   窗口背景透明，可与下方应用交互（鼠标穿透）。
+    *   模型和UI控件区域可动态识别并响应交互（如拖动、点击）。
+*   **高级字幕系统**: 支持逐句、逐字的“打字机”涌现效果，并集成了翻译功能。
 *   **直播集成**: 支持B站直播弹幕互动。
 *   **主动对话与长期记忆**: 具备初步的上下文理解、主动发起对话和记忆关键信息的能力。
 *   **MCP 支持**: 可通过 MCP (Model Context Protocol) 协议扩展更多工具和功能。
@@ -28,10 +34,10 @@
 
 1.  **硬件**:
     *   基础运行: 建议至少 6GB 显存的 NVIDIA 显卡。
-    *   本地 LLM 推理/微调: 建议至少 12GB 显存。
+    *   本地 LLM/VLM 推理/微调: 建议至少 12GB 显存。
 2.  **软件**:
     *   安装 [Anaconda](https://www.anaconda.com/download/success)。
-    *   准备一个可用的 LLM API Key (如 OpenAI, DeepSeek, 智谱等)。
+    *   准备一个可用的 LLM/VLM API Key (如 OpenAI, DeepSeek, 智谱等)。
 
 ### 启动步骤
 
@@ -57,28 +63,18 @@
     python Batch_Download.py
     ```
 
-4.  **启动后端服务**:
-    依次启动 ASR, TTS, BERT 等本地服务。
-    ```bash
-    # 启动 ASR 服务
-    python asr_api.py
-    # 启动 BERT 服务
-    python bert_api.py
-    # 启动记忆 BERT 服务
-    python Mnemosyne-bert\api_go.py
-    # 启动 TTS 服务
-    cd tts-studio
-    python tts_api.py 
-    ```
+4.  **配置应用**:
+    *   进入 `live-2d` 目录，复制 `config_original.json` 并重命名为 `config.json`。
+    *   打开 `config.json`，填入你自己的 API Key 等信息。
 
-5.  **启动前端应用**:
-    进入 `live-2d` 目录，安装依赖并启动。
+5.  **一键启动**:
+    进入 `live-2d` 目录，安装前端依赖并启动应用。所有后端服务将由 Electron 自动管理。
     ```bash
     cd live-2d
     npm install
     npm run dev
     ```
-    应用启动后，根据界面提示配置 API Key 等信息即可开始使用。
+    应用启动后即可开始使用。
 
 ## 未来计划
 

@@ -1,0 +1,77 @@
+{
+  "launch": {
+    "cmd": ".\\node\\node.exe .\\node_modules\\electron\\cli.js .",
+    "work_dir": ".",
+    "auto_start": false,
+    "hide_cmd": true
+  },
+  "llm": {
+    "api_key": "",
+    "api_url": "http://127.0.0.1:8000",
+    "provider": "google_aistudio",
+    "model": "gemini-2.5-flash-lite-preview-06-17",
+    "system_prompt": ""
+  },
+  "tts": {
+    "url": "http://127.0.0.1:5000/vits-tts",
+    "language": "ja"
+  },
+  "asr": {
+    "vad_url": "ws://127.0.0.1:1000/v1/ws/vad",
+    "asr_url": "http://127.0.0.1:1000/v1/upload_audio"
+  },
+  "memory": {
+    "file_path": "text_database.txt",
+    "check_url": "http://127.0.0.1:7878/check"
+  },
+  "vision": {
+    "enabled": true,
+    "check_url": "http://127.0.0.1:6006/check",
+    "screenshot_path": "./screenshot.jpg",
+    "auto_screenshot": false,
+    "api_key": "",
+    "api_url": "http://127.0.0.1:8001",
+    "provider": "google_aistudio",
+    "model": "gemini-2.5-flash-lite-preview-06-17"
+  },
+  "ui": {
+    "intro_text": "<兴奋>こんにちは。",
+    "model_scale": 1.5,
+    "show_chat_box": false
+  },
+  "context": {
+    "enable_limit": true,
+    "max_messages": 20
+  },
+  "bilibili": {
+    "enabled": false,
+    "roomId": 0,
+    "checkInterval": 5000,
+    "maxMessages": 50,
+    "apiUrl": "http://api.live.bilibili.com/ajax/msg"
+  },
+  "auto_chat": {
+    "enabled": false,
+    "interval": 6000,
+    "min_interval": 3000,
+    "max_interval": 3000,
+    "idle_time": 6000
+  },
+  "mcp": {
+    "enabled": false,
+    "server_url": "http://localhost:3000"
+  },
+  "translator": {
+    "enabled": true,
+    "provider": "google_aistudio",
+    "api_url": "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&",
+    "source_lang": "ja",
+    "target_lang": "zh-CN",
+    "prompt": ""
+  },
+  "focus_mode": {
+    "enabled": false,
+    "interval": 60000,
+    "reminder_system_prompt": ""
+  }
+}
