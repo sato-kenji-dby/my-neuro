@@ -1,0 +1,50 @@
+name: Sync Docs to Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+
+jobs:
+  sync-wiki-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main repository
+        uses: actions/checkout@v4
+        with:
+          path: main-repo
+
+      - name: Check out wiki repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki-repo
+          # Use a Personal Access Token (PAT) for pushing to the wiki
+          # You need to create a PAT with 'repo' scope and save it as a secret named WIKI_SYNC_TOKEN
+          token: ${{ secrets.WIKI_SYNC_TOKEN }}
+
+      - name: Sync files
+        run: |
+          # This command will remove everything from the wiki repo except .git folder
+          # Be careful if you have other files in the wiki you want to keep
+          cd wiki-repo
+          git rm -rf .
+          cd ../main-repo
+          # Copy all content from docs folder to the root of the wiki repo
+          cp -r docs/* ../wiki-repo/
+
+      - name: Commit and push changes
+        run: |
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Check if there are any changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Sync documentation from main repository"
+            git push
+          else
+            echo "No changes to sync."
+          fi
